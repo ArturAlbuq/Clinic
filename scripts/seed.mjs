@@ -49,6 +49,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 const DEFAULT_PASSWORD = "Clinic123!";
+const ADMIN_PASSWORD = "PadrePio123";
 
 const rooms = [
   {
@@ -78,7 +79,12 @@ const rooms = [
 ];
 
 const users = [
-  { email: "admin@clinic.local", full_name: "Admin Clínica", role: "admin" },
+  {
+    email: "admin@clinic.local",
+    full_name: "Admin Clínica",
+    password: ADMIN_PASSWORD,
+    role: "admin",
+  },
   {
     email: "recepcao1@clinic.local",
     full_name: "Recepção 1",
@@ -139,6 +145,7 @@ async function seedUsers() {
 
   for (const user of users) {
     const existingUser = authUsers.users.find((entry) => entry.email === user.email);
+    const password = user.password ?? DEFAULT_PASSWORD;
 
     let userId = existingUser?.id;
 
@@ -148,7 +155,7 @@ async function seedUsers() {
         {
           email: user.email,
           email_confirm: true,
-          password: DEFAULT_PASSWORD,
+          password,
           user_metadata: {
             full_name: user.full_name,
             role: user.role,
@@ -165,7 +172,7 @@ async function seedUsers() {
       const { data, error } = await supabase.auth.admin.createUser({
         email: user.email,
         email_confirm: true,
-        password: DEFAULT_PASSWORD,
+        password,
         user_metadata: {
           full_name: user.full_name,
           role: user.role,
@@ -196,7 +203,8 @@ async function main() {
   await seedUsers();
 
   console.log("Seed concluído.");
-  console.log("Senha padrão para todos os usuários:", DEFAULT_PASSWORD);
+  console.log("Senha do admin:", ADMIN_PASSWORD);
+  console.log("Senha padrão para os demais usuários:", DEFAULT_PASSWORD);
   console.log("Usuários criados:", users.map((user) => user.email).join(", "));
 }
 
