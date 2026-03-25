@@ -25,7 +25,7 @@ export default async function AtendimentoRoomPage({ params }: RoomPageProps) {
     notFound();
   }
 
-  const { profile, supabase } = await requireRole(["atendimento", "admin"]);
+  const { supabase } = await requireRole(["atendimento", "admin"]);
   const [attendances, queueItems] = await Promise.all([
     fetchAttendances(supabase),
     fetchQueueItems(supabase),
@@ -35,7 +35,6 @@ export default async function AtendimentoRoomPage({ params }: RoomPageProps) {
     <RoomQueueBoard
       initialAttendances={attendances}
       initialItems={queueItems}
-      profileId={profile.id}
       room={ROOM_BY_SLUG[roomSlug]}
       roomSlug={roomSlug}
     />

@@ -8,53 +8,45 @@ import type { QueueDateRange } from "@/lib/queue";
 import { getTodayBounds } from "@/lib/queue";
 
 async function reloadAttendances(range?: QueueDateRange) {
-  const supabase = getBrowserSupabaseClient();
-
-  if (!supabase) {
-    return [];
-  }
-
   const { startIso, endIso } = range ?? getTodayBounds();
-  const { data, error } = await supabase
-    .from("attendances")
-    .select("*")
-    .gte("created_at", startIso)
-    .lt("created_at", endIso)
-    .order("created_at", { ascending: false });
+  const response = await fetch(
+    `/api/clinic/attendances/list?startIso=${encodeURIComponent(startIso)}&endIso=${encodeURIComponent(endIso)}`,
+    {
+      cache: "no-store",
+      credentials: "same-origin",
+    },
+  );
 
-  if (error) {
-    throw error;
+  if (!response.ok) {
+    throw new Error("Não foi possível recarregar os atendimentos.");
   }
 
-  return (data ?? []) as AttendanceRecord[];
+  const payload = (await response.json()) as { attendances?: AttendanceRecord[] };
+  return payload.attendances ?? [];
 }
 
 async function reloadQueueItems(roomSlug?: RoomSlug, range?: QueueDateRange) {
-  const supabase = getBrowserSupabaseClient();
-
-  if (!supabase) {
-    return [];
-  }
-
   const { startIso, endIso } = range ?? getTodayBounds();
-  let query = supabase
-    .from("queue_items")
-    .select("*")
-    .gte("created_at", startIso)
-    .lt("created_at", endIso)
-    .order("created_at", { ascending: true });
+  const params = new URLSearchParams({
+    endIso,
+    startIso,
+  });
 
   if (roomSlug) {
-    query = query.eq("room_slug", roomSlug);
+    params.set("roomSlug", roomSlug);
   }
 
-  const { data, error } = await query;
+  const response = await fetch(`/api/clinic/queue-items/list?${params.toString()}`, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
 
-  if (error) {
-    throw error;
+  if (!response.ok) {
+    throw new Error("Não foi possível recarregar a fila.");
   }
 
-  return (data ?? []) as QueueItemRecord[];
+  const payload = (await response.json()) as { queueItems?: QueueItemRecord[] };
+  return payload.queueItems ?? [];
 }
 
 export function useRealtimeClinicData(options: {
@@ -86,17 +78,21 @@ export function useRealtimeClinicData(options: {
     let isActive = true;
 
     async function refreshAll() {
-      const [nextAttendances, nextQueueItems] = await Promise.all([
-        reloadAttendances(range),
-        reloadQueueItems(roomSlug, range),
-      ]);
+      try {
+        const [nextAttendances, nextQueueItems] = await Promise.all([
+          reloadAttendances(range),
+          reloadQueueItems(roomSlug, range),
+        ]);
 
-      if (!isActive) {
+        if (!isActive) {
+          return;
+        }
+
+        setAttendances(nextAttendances);
+        setQueueItems(nextQueueItems);
+      } catch {
         return;
       }
-
-      setAttendances(nextAttendances);
-      setQueueItems(nextQueueItems);
     }
 
     const attendanceChannel = supabase

@@ -13,7 +13,6 @@ import type {
 import { formatClock, formatMinuteLabel } from "@/lib/date";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import type { RoomSlug } from "@/lib/constants";
-import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import {
   combineQueueItemsWithAttendances,
   getNextStatus,
@@ -26,7 +25,6 @@ import {
 type RoomQueueBoardProps = {
   initialAttendances: AttendanceRecord[];
   initialItems: QueueItemRecord[];
-  profileId: string;
   room: {
     roomName: string;
     shortName: string;
@@ -37,7 +35,6 @@ type RoomQueueBoardProps = {
 export function RoomQueueBoard({
   initialAttendances,
   initialItems,
-  profileId,
   room,
   roomSlug,
 }: RoomQueueBoardProps) {
@@ -78,35 +75,34 @@ export function RoomQueueBoard({
       return;
     }
 
-    const supabase = getBrowserSupabaseClient();
-
-    if (!supabase) {
-      setActionError("Supabase não configurado.");
-      return;
-    }
-
     setActionError("");
     setPendingItemId(item.id);
 
-    const { data, error } = await supabase
-      .from("queue_items")
-      .update({
+    const response = await fetch(`/api/clinic/queue-items/${item.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
         status: nextStatus,
-        updated_by: profileId,
-      })
-      .eq("id", item.id)
-      .select("*")
-      .single();
+      }),
+    });
 
-    if (error || !data) {
-      setActionError(error?.message || "Não foi possível atualizar o status.");
+    const payload = (await response.json()) as {
+      error?: string;
+      queueItem?: QueueItemRecord;
+    };
+
+    if (!response.ok || !payload.queueItem) {
+      setActionError(payload.error || "Não foi possível atualizar o status.");
       setPendingItemId(null);
       return;
     }
 
     setQueueItems((currentItems) =>
       currentItems.map((currentItem) =>
-        currentItem.id === item.id ? (data as QueueItemRecord) : currentItem,
+        currentItem.id === item.id ? (payload.queueItem as QueueItemRecord) : currentItem,
       ),
     );
     setPendingItemId(null);

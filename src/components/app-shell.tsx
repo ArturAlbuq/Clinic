@@ -13,7 +13,7 @@ export function AppShell({ profile, children }: AppShellProps) {
   return (
     <div className="app-grid min-h-screen">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
-        <header className="app-panel sticky top-5 z-30 rounded-[30px] border border-white/80 px-5 py-4 backdrop-blur md:px-7">
+        <header className="app-panel rounded-[30px] border border-white/80 px-5 py-4 backdrop-blur md:px-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-700">

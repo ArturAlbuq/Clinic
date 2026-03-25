@@ -25,12 +25,10 @@ import {
   groupAttendancesWithQueueItems,
   sortAttendancesByPriorityAndCreatedAt,
 } from "@/lib/queue";
-import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 type ReceptionDashboardProps = {
   initialAttendances: AttendanceRecord[];
   initialItems: QueueItemRecord[];
-  profileId: string;
   rooms: ExamRoomRecord[];
 };
 
@@ -48,7 +46,6 @@ const PRIORITY_OPTIONS: AttendancePriority[] = ["normal", "alta", "urgente"];
 export function ReceptionDashboard({
   initialAttendances,
   initialItems,
-  profileId,
   rooms,
 }: ReceptionDashboardProps) {
   const { attendances, queueItems, setAttendances, setQueueItems } =
@@ -110,59 +107,36 @@ export function ReceptionDashboard({
       return;
     }
 
-    const supabase = getBrowserSupabaseClient();
-
-    if (!supabase) {
-      setFormError("Supabase não configurado.");
-      return;
-    }
-
     setIsSubmitting(true);
 
-    const { data: attendance, error: attendanceError } = await supabase
-      .from("attendances")
-      .insert({
-        created_by: profileId,
-        notes: notes.trim() || null,
-        patient_name: patientName.trim(),
+    const response = await fetch("/api/clinic/attendances", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        notes,
+        patientName,
         priority,
-      })
-      .select("*")
-      .single();
+        selectedExams,
+      }),
+    });
 
-    if (attendanceError || !attendance) {
-      setFormError(
-        attendanceError?.message || "Não foi possível criar o atendimento.",
-      );
+    const payload = (await response.json()) as {
+      attendance?: AttendanceRecord;
+      error?: string;
+      queueItems?: QueueItemRecord[];
+    };
+
+    if (!response.ok || !payload.attendance) {
+      setFormError(payload.error || "Não foi possível criar o atendimento.");
       setIsSubmitting(false);
       return;
     }
 
-    const createdAttendance = attendance as AttendanceRecord;
-
-    const { data: createdQueueItems, error: queueError } = await supabase
-      .from("queue_items")
-      .insert(
-        selectedExams.map((examType) => ({
-          attendance_id: createdAttendance.id,
-          exam_type: examType,
-        })),
-      )
-      .select("*");
-
-    if (queueError || !createdQueueItems) {
-      setFormError(
-        queueError?.message || "Não foi possível criar os itens da fila.",
-      );
-      setIsSubmitting(false);
-      return;
-    }
-
-    setAttendances((current) => [createdAttendance, ...current]);
-    setQueueItems((current) => [
-      ...current,
-      ...(createdQueueItems as QueueItemRecord[]),
-    ]);
+    setAttendances((current) => [payload.attendance as AttendanceRecord, ...current]);
+    setQueueItems((current) => [...current, ...((payload.queueItems ?? []) as QueueItemRecord[])]);
     setPatientName("");
     setSelectedExams([]);
     setPriority("normal");
@@ -263,7 +237,7 @@ export function ReceptionDashboard({
                 onChange={(event) => setNotes(event.target.value)}
                 rows={4}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                placeholder="Opcional. Ex.: encaixe, retorno, paciente com prioridade clinica."
+                placeholder="Opcional. Ex.: encaixe, retorno, paciente com prioridade clínica."
               />
             </label>
 
