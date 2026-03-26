@@ -12,6 +12,8 @@ export type RoomSlug =
   | "panoramico"
   | "tomografia";
 
+export type RealtimeStatus = "conectando" | "conectado" | "instavel" | "offline";
+
 export const NEW_ITEM_WINDOW_MINUTES = 3;
 
 export const ROOM_ORDER: RoomSlug[] = [
@@ -105,6 +107,13 @@ export const STATUS_LABELS: Record<QueueStatus, string> = {
   finalizado: "Finalizado",
 };
 
+export const ROOM_STATUS_LABELS: Record<QueueStatus, string> = {
+  aguardando: "Na fila",
+  chamado: "Paciente chamado",
+  em_atendimento: "Em exame",
+  finalizado: "Etapa concluída",
+};
+
 export const PRIORITY_LABELS: Record<AttendancePriority, string> = {
   normal: "Normal",
   alta: "Alta",
@@ -139,6 +148,13 @@ export const ROLE_NAVIGATION: Record<
   recepcao: [{ href: "/recepcao", label: "Recepção" }],
   atendimento: [{ href: "/atendimento", label: "Salas" }],
   admin: [{ href: "/admin", label: "Resumo do dia" }],
+};
+
+export const REALTIME_STATUS_LABELS: Record<RealtimeStatus, string> = {
+  conectando: "Conectando",
+  conectado: "Tempo real ativo",
+  instavel: "Reconectando",
+  offline: "Sem sincronização",
 };
 
 export const STATUS_ORDER: QueueStatus[] = [

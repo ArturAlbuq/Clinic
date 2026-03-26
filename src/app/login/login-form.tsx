@@ -59,7 +59,7 @@ export function LoginForm({ serverError }: LoginFormProps) {
         profileError?.message?.includes("schema cache")
       ) {
         setError(
-          "Banco não inicializado. Rode o schema SQL do projeto e depois execute o seed.",
+          "Banco não inicializado. Aplique as migrations do projeto e depois execute o seed.",
         );
       } else {
         setError(
@@ -88,9 +88,8 @@ export function LoginForm({ serverError }: LoginFormProps) {
             Fluxo simples entre recepção, salas e visão administrativa.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
-            O foco aqui é visibilidade imediata da fila. A recepção registra, a
-            sala correta recebe sem papel e o admin acompanha o dia em uma tela
-            objetiva.
+            O foco aqui é visibilidade imediata da fila. A recepção registra, a sala
+            correta recebe sem papel e o admin acompanha o dia em uma tela objetiva.
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {ROLE_HINTS.map((hint) => (
@@ -162,14 +161,6 @@ export function LoginForm({ serverError }: LoginFormProps) {
               {isPending ? "Entrando..." : "Entrar"}
             </button>
           </form>
-
-          <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-700">Seed de demonstração</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              O projeto inclui um script de seed para criar um admin, três
-              recepções e quatro atendimentos no Supabase.
-            </p>
-          </div>
         </section>
       </div>
     </div>

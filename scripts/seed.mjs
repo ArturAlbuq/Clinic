@@ -28,6 +28,22 @@ function loadEnvFile(fileName) {
   }
 }
 
+function resolveSeedPassword(envKey, fallback) {
+  const explicitPassword = process.env[envKey]?.trim();
+
+  if (explicitPassword) {
+    return explicitPassword;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      `Defina ${envKey} explicitamente para rodar o seed fora de ambiente local.`,
+    );
+  }
+
+  return fallback;
+}
+
 loadEnvFile(".env.local");
 loadEnvFile(".env");
 
@@ -48,8 +64,8 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   },
 });
 
-const DEFAULT_PASSWORD = "Clinic123!";
-const ADMIN_PASSWORD = "PadrePio123";
+const DEFAULT_PASSWORD = resolveSeedPassword("SEED_DEFAULT_PASSWORD", "Clinic123!");
+const ADMIN_PASSWORD = resolveSeedPassword("SEED_ADMIN_PASSWORD", "PadrePio123");
 
 const rooms = [
   {
@@ -78,47 +94,57 @@ const rooms = [
   },
 ];
 
+const allRoomSlugs = rooms.map((room) => room.slug);
+
 const users = [
   {
     email: "admin@clinic.local",
     full_name: "Admin Clínica",
     password: ADMIN_PASSWORD,
     role: "admin",
+    room_slugs: [],
   },
   {
     email: "recepcao1@clinic.local",
     full_name: "Recepção 1",
     role: "recepcao",
+    room_slugs: [],
   },
   {
     email: "recepcao2@clinic.local",
     full_name: "Recepção 2",
     role: "recepcao",
+    room_slugs: [],
   },
   {
     email: "recepcao3@clinic.local",
     full_name: "Recepção 3",
     role: "recepcao",
+    room_slugs: [],
   },
   {
     email: "atendimento1@clinic.local",
     full_name: "Atendimento 1",
     role: "atendimento",
+    room_slugs: allRoomSlugs,
   },
   {
     email: "atendimento2@clinic.local",
     full_name: "Atendimento 2",
     role: "atendimento",
+    room_slugs: allRoomSlugs,
   },
   {
     email: "atendimento3@clinic.local",
     full_name: "Atendimento 3",
     role: "atendimento",
+    room_slugs: allRoomSlugs,
   },
   {
     email: "atendimento4@clinic.local",
     full_name: "Atendimento 4",
     role: "atendimento",
+    room_slugs: allRoomSlugs,
   },
 ];
 
@@ -158,7 +184,6 @@ async function seedUsers() {
           password,
           user_metadata: {
             full_name: user.full_name,
-            role: user.role,
           },
         },
       );
@@ -175,7 +200,6 @@ async function seedUsers() {
         password,
         user_metadata: {
           full_name: user.full_name,
-          role: user.role,
         },
       });
 
@@ -194,6 +218,30 @@ async function seedUsers() {
 
     if (profileError) {
       throw profileError;
+    }
+
+    const { error: deleteAccessError } = await supabase
+      .from("profile_room_access")
+      .delete()
+      .eq("profile_id", userId);
+
+    if (deleteAccessError) {
+      throw deleteAccessError;
+    }
+
+    if (user.room_slugs.length) {
+      const { error: accessError } = await supabase
+        .from("profile_room_access")
+        .insert(
+          user.room_slugs.map((room_slug) => ({
+            profile_id: userId,
+            room_slug,
+          })),
+        );
+
+      if (accessError) {
+        throw accessError;
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { AppRole, ProfileRecord } from "@/lib/database.types";
+import type { RoomSlug } from "@/lib/constants";
 import { ROLE_HOME } from "@/lib/constants";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -59,6 +60,26 @@ export async function requireRole(allowedRoles: AppRole | AppRole[]) {
   }
 
   return session;
+}
+
+export async function listAccessibleRoomSlugs(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  profile: ProfileRecord,
+): Promise<RoomSlug[]> {
+  if (profile.role !== "atendimento") {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("profile_room_access")
+    .select("room_slug")
+    .eq("profile_id", profile.id);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((entry) => entry.room_slug as RoomSlug);
 }
 
 export async function redirectToRoleHome() {

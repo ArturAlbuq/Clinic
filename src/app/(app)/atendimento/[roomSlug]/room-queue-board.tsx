@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
+import { RealtimeStatusBadge } from "@/components/realtime-status";
 import { StatusBadge } from "@/components/status-badge";
+import { ROOM_STATUS_LABELS } from "@/lib/constants";
 import type {
   AttendanceRecord,
   QueueItemRecord,
@@ -38,9 +40,16 @@ export function RoomQueueBoard({
   room,
   roomSlug,
 }: RoomQueueBoardProps) {
-  const { attendances, queueItems, setQueueItems } = useRealtimeClinicData({
+  const {
+    attendances,
+    queueItems,
+    realtimeError,
+    realtimeStatus,
+    setQueueItems,
+  } = useRealtimeClinicData({
     initialAttendances,
     initialQueueItems: initialItems,
+    roomSlug,
   });
   const [nowMs, setNowMs] = useState<number | null>(null);
   const [actionError, setActionError] = useState("");
@@ -95,7 +104,7 @@ export function RoomQueueBoard({
     };
 
     if (!response.ok || !payload.queueItem) {
-      setActionError(payload.error || "Não foi possível atualizar o status.");
+      setActionError(payload.error || "Não foi possível avançar a etapa.");
       setPendingItemId(null);
       return;
     }
@@ -124,36 +133,38 @@ export function RoomQueueBoard({
               href="/atendimento"
               className="text-sm font-semibold text-cyan-800 hover:text-cyan-900"
             >
-              Voltar para seleção de salas
+              Voltar para as salas
             </Link>
             <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
-              Fila da sala
+              Operação da sala
             </p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
               {room.roomName}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Os pacientes entram aqui em tempo real e a fila respeita prioridade
-              e horário de chegada do atendimento.
+              Chame o próximo paciente, inicie o exame e conclua a etapa sem sair da fila.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[24px] border border-amber-200/80 bg-amber-50 px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                Aguardando
-              </p>
-              <p className="mt-2 text-3xl font-semibold text-amber-900">
-                {waitingCount}
-              </p>
-            </div>
-            <div className="rounded-[24px] border border-emerald-200/80 bg-emerald-50 px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                Em fluxo
-              </p>
-              <p className="mt-2 text-3xl font-semibold text-emerald-900">
-                {activeCount}
-              </p>
+          <div className="space-y-3">
+            <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[24px] border border-amber-200/80 bg-amber-50 px-5 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                  Na fila
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-amber-900">
+                  {waitingCount}
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-emerald-200/80 bg-emerald-50 px-5 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                  Em exame
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-emerald-900">
+                  {activeCount}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -228,10 +239,10 @@ export function RoomQueueBoard({
                   </div>
                   <div className="rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Status
+                      Situação
                     </p>
                     <p className="mt-2 text-lg font-semibold text-slate-900">
-                      {item.status.replace("_", " ")}
+                      {ROOM_STATUS_LABELS[item.status]}
                     </p>
                   </div>
                 </div>
@@ -248,7 +259,7 @@ export function RoomQueueBoard({
                     </button>
                   ) : (
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-                      Exame finalizado
+                      Etapa concluída
                     </div>
                   )}
                 </div>
@@ -258,7 +269,7 @@ export function RoomQueueBoard({
         </section>
       ) : (
         <EmptyState
-          title="Nenhum paciente nessa sala"
+          title="Nenhum paciente nesta sala"
           description="Assim que a recepção enviar um novo atendimento para esta fila, ele aparece aqui automaticamente."
         />
       )}

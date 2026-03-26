@@ -71,6 +71,24 @@ export interface Database {
         };
         Relationships: [];
       };
+      profile_room_access: {
+        Row: {
+          profile_id: string;
+          room_slug: string;
+          created_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          room_slug: string;
+          created_at?: string;
+        };
+        Update: {
+          profile_id?: string;
+          room_slug?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       attendances: {
         Row: {
           id: string;
@@ -154,7 +172,17 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      create_attendance_with_queue_items: {
+        Args: {
+          p_exam_types: ExamType[];
+          p_notes: string | null;
+          p_patient_name: string;
+          p_priority: AttendancePriority;
+        };
+        Returns: Json;
+      };
+    };
     Enums: {
       app_role: AppRole;
       exam_type: ExamType;
@@ -167,6 +195,8 @@ export interface Database {
 
 export type ProfileRecord = Database["public"]["Tables"]["profiles"]["Row"];
 export type ExamRoomRecord = Database["public"]["Tables"]["exam_rooms"]["Row"];
+export type ProfileRoomAccessRecord =
+  Database["public"]["Tables"]["profile_room_access"]["Row"];
 export type AttendanceRecord = Database["public"]["Tables"]["attendances"]["Row"];
 export type QueueItemRecord = Database["public"]["Tables"]["queue_items"]["Row"];
 

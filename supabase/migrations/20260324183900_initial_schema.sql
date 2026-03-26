@@ -57,13 +57,6 @@ create table if not exists public.exam_rooms (
   created_at timestamptz not null default timezone('utc', now())
 );
 
-create table if not exists public.profile_room_access (
-  profile_id uuid not null references public.profiles (id) on delete cascade,
-  room_slug text not null references public.exam_rooms (slug) on update cascade on delete cascade,
-  created_at timestamptz not null default timezone('utc', now()),
-  primary key (profile_id, room_slug)
-);
-
 create table if not exists public.attendances (
   id uuid primary key default gen_random_uuid(),
   patient_name text not null check (char_length(trim(patient_name)) >= 2),
@@ -100,9 +93,6 @@ create index if not exists attendances_created_at_idx
 
 create index if not exists attendances_priority_created_at_idx
   on public.attendances (priority, created_at asc);
-
-create index if not exists profile_room_access_room_slug_idx
-  on public.profile_room_access (room_slug);
 
 create index if not exists queue_items_created_at_idx
   on public.queue_items (created_at desc);
@@ -219,11 +209,12 @@ begin
   values (
     new.id,
     coalesce(metadata ->> 'full_name', split_part(new.email, '@', 1)),
-    'recepcao'::public.app_role
+    coalesce((metadata ->> 'role')::public.app_role, 'recepcao'::public.app_role)
   )
   on conflict (id) do update
   set
-    full_name = excluded.full_name;
+    full_name = excluded.full_name,
+    role = excluded.role;
 
   return new;
 end;
@@ -241,7 +232,7 @@ begin
   where exam_type = new.exam_type;
 
   if new.room_slug is null then
-    raise exception 'sala nao encontrada para o exame %', new.exam_type;
+    raise exception 'Sala não encontrada para o exame %', new.exam_type;
   end if;
 
   return new;
@@ -266,7 +257,7 @@ begin
   where id = new.attendance_id;
 
   if attendance_row.id is null then
-    raise exception 'atendimento nao encontrado para queue_item %', new.attendance_id;
+    raise exception 'Atendimento não encontrado para queue_item %', new.attendance_id;
   end if;
 
   new.patient_name = attendance_row.patient_name;
@@ -299,7 +290,7 @@ begin
     return new;
   end if;
 
-  raise exception 'transicao de status invalida: % -> %', old.status, new.status;
+  raise exception 'Transição de status inválida: % -> %', old.status, new.status;
 end;
 $$;
 
@@ -341,112 +332,6 @@ as $$
   where id = auth.uid();
 $$;
 
-create or replace function public.user_has_room_access(target_room_slug text)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select case
-    when auth.uid() is null then false
-    when public.current_app_role() in ('admin', 'recepcao') then true
-    when public.current_app_role() <> 'atendimento' then false
-    else exists (
-      select 1
-      from public.profile_room_access pra
-      where pra.profile_id = auth.uid()
-        and pra.room_slug = target_room_slug
-    )
-  end;
-$$;
-
-create or replace function public.user_can_access_attendance(target_attendance_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select case
-    when auth.uid() is null then false
-    when public.current_app_role() in ('admin', 'recepcao') then true
-    when public.current_app_role() <> 'atendimento' then false
-    else exists (
-      select 1
-      from public.queue_items q
-      join public.profile_room_access pra
-        on pra.room_slug = q.room_slug
-      where q.attendance_id = target_attendance_id
-        and pra.profile_id = auth.uid()
-    )
-  end;
-$$;
-
-create or replace function public.create_attendance_with_queue_items(
-  p_patient_name text,
-  p_priority public.attendance_priority,
-  p_notes text,
-  p_exam_types public.exam_type[]
-)
-returns jsonb
-language plpgsql
-set search_path = public
-as $$
-declare
-  created_attendance public.attendances%rowtype;
-  created_queue_items jsonb;
-begin
-  if auth.uid() is null then
-    raise exception 'autenticacao obrigatoria';
-  end if;
-
-  if public.current_app_role() not in ('recepcao', 'admin') then
-    raise exception 'sem permissao para criar atendimento';
-  end if;
-
-  if char_length(trim(coalesce(p_patient_name, ''))) < 2 then
-    raise exception 'nome do paciente invalido';
-  end if;
-
-  if coalesce(array_length(p_exam_types, 1), 0) = 0 then
-    raise exception 'selecione ao menos um exame';
-  end if;
-
-  insert into public.attendances (
-    patient_name,
-    priority,
-    notes,
-    created_by
-  )
-  values (
-    trim(p_patient_name),
-    p_priority,
-    nullif(trim(coalesce(p_notes, '')), ''),
-    auth.uid()
-  )
-  returning *
-  into created_attendance;
-
-  with inserted_items as (
-    insert into public.queue_items (attendance_id, exam_type)
-    select created_attendance.id, distinct_exam.exam_type
-    from (
-      select distinct unnest(p_exam_types) as exam_type
-    ) as distinct_exam
-    returning *
-  )
-  select coalesce(jsonb_agg(to_jsonb(inserted_items)), '[]'::jsonb)
-  into created_queue_items
-  from inserted_items;
-
-  return jsonb_build_object(
-    'attendance', to_jsonb(created_attendance),
-    'queueItems', created_queue_items
-  );
-end;
-$$;
-
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
@@ -479,7 +364,6 @@ for each row execute procedure public.stamp_queue_status();
 
 alter table public.profiles enable row level security;
 alter table public.exam_rooms enable row level security;
-alter table public.profile_room_access enable row level security;
 alter table public.attendances enable row level security;
 alter table public.queue_items enable row level security;
 
@@ -497,19 +381,12 @@ for select
 to authenticated
 using (true);
 
-drop policy if exists "profile_room_access_select_self_or_admin" on public.profile_room_access;
-create policy "profile_room_access_select_self_or_admin"
-on public.profile_room_access
-for select
-to authenticated
-using (profile_id = auth.uid() or public.current_app_role() = 'admin');
-
-drop policy if exists "attendances_select_by_role_and_scope" on public.attendances;
-create policy "attendances_select_by_role_and_scope"
+drop policy if exists "attendances_select_authenticated" on public.attendances;
+create policy "attendances_select_authenticated"
 on public.attendances
 for select
 to authenticated
-using (public.user_can_access_attendance(id));
+using (true);
 
 drop policy if exists "attendances_insert_recepcao_or_admin" on public.attendances;
 create policy "attendances_insert_recepcao_or_admin"
@@ -521,12 +398,12 @@ with check (
   and created_by = auth.uid()
 );
 
-drop policy if exists "queue_items_select_by_role_and_room" on public.queue_items;
-create policy "queue_items_select_by_role_and_room"
+drop policy if exists "queue_items_select_authenticated" on public.queue_items;
+create policy "queue_items_select_authenticated"
 on public.queue_items
 for select
 to authenticated
-using (public.user_has_room_access(room_slug));
+using (true);
 
 drop policy if exists "queue_items_insert_recepcao_or_admin" on public.queue_items;
 create policy "queue_items_insert_recepcao_or_admin"
@@ -543,28 +420,13 @@ with check (
   )
 );
 
-drop policy if exists "queue_items_update_by_room_or_admin" on public.queue_items;
-create policy "queue_items_update_by_room_or_admin"
+drop policy if exists "queue_items_update_atendimento_or_admin" on public.queue_items;
+create policy "queue_items_update_atendimento_or_admin"
 on public.queue_items
 for update
 to authenticated
-using (
-  public.current_app_role() = 'admin'
-  or (
-    public.current_app_role() = 'atendimento'
-    and public.user_has_room_access(room_slug)
-  )
-)
-with check (
-  updated_by = auth.uid()
-  and (
-    public.current_app_role() = 'admin'
-    or (
-      public.current_app_role() = 'atendimento'
-      and public.user_has_room_access(room_slug)
-    )
-  )
-);
+using (public.current_app_role() in ('atendimento', 'admin'))
+with check (public.current_app_role() in ('atendimento', 'admin'));
 
 alter table public.queue_items replica identity full;
 alter table public.attendances replica identity full;

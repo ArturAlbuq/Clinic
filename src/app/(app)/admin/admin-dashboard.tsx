@@ -5,6 +5,7 @@ import { AttendanceTimeline } from "@/components/attendance-timeline";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityBadge } from "@/components/priority-badge";
+import { RealtimeStatusBadge } from "@/components/realtime-status";
 import {
   ATTENDANCE_STATUS_LABELS,
   ROOM_BY_SLUG,
@@ -75,7 +76,7 @@ export function AdminDashboard({
   >("todos");
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const { attendances, queueItems } = useRealtimeClinicData({
+  const { attendances, queueItems, realtimeError, realtimeStatus } = useRealtimeClinicData({
     initialAttendances,
     initialQueueItems: initialItems,
     range,
@@ -145,7 +146,7 @@ export function AdminDashboard({
 
     return matchesPriority && matchesStatus;
   });
-  const recentAttendances = filteredAttendances.slice(0, 10);
+  const visibleAttendances = filteredAttendances;
 
   const priorityCounts = {
     alta: attendances.filter((attendance) => attendance.priority === "alta").length,
@@ -216,7 +217,9 @@ export function AdminDashboard({
               mês, trimestre ou ano.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-3">
+            <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
+            <div className="flex flex-wrap gap-2">
             <FilterSelect
               label="Período"
               value={initialPeriod}
@@ -252,6 +255,7 @@ export function AdminDashboard({
               />
               <NavButton label="Próximo" onClick={() => shiftPeriod(1)} />
             </div>
+          </div>
           </div>
         </div>
       </section>
@@ -408,11 +412,14 @@ export function AdminDashboard({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Lista recente
+              Lista operacional
             </p>
             <h3 className="mt-2 text-2xl font-semibold text-slate-950">
               Atendimentos do período
             </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              {visibleAttendances.length} resultado{visibleAttendances.length === 1 ? "" : "s"} no filtro atual.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <FilterSelect
@@ -444,9 +451,9 @@ export function AdminDashboard({
           </div>
         </div>
 
-        {recentAttendances.length ? (
+        {visibleAttendances.length ? (
           <div className="mt-6 space-y-3">
-            {recentAttendances.map((attendance) => (
+            {visibleAttendances.map((attendance) => (
               <AttendanceAdminRow
                 key={attendance.id}
                 attendance={attendance}

@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth";
+import { notFound, redirect } from "next/navigation";
+import { listAccessibleRoomSlugs, requireRole } from "@/lib/auth";
 import { isRoomSlug, ROOM_BY_SLUG } from "@/lib/constants";
 import { fetchAttendances, fetchQueueItems } from "@/lib/queue";
 import { RoomQueueBoard } from "./room-queue-board";
@@ -25,11 +25,19 @@ export default async function AtendimentoRoomPage({ params }: RoomPageProps) {
     notFound();
   }
 
-  const { supabase } = await requireRole(["atendimento", "admin"]);
-  const [attendances, queueItems] = await Promise.all([
+  const { profile, supabase } = await requireRole(["atendimento", "admin"]);
+  const [attendances, queueItems, accessibleRoomSlugs] = await Promise.all([
     fetchAttendances(supabase),
     fetchQueueItems(supabase),
+    listAccessibleRoomSlugs(supabase, profile),
   ]);
+
+  if (
+    profile.role === "atendimento" &&
+    !accessibleRoomSlugs.includes(roomSlug)
+  ) {
+    redirect("/atendimento");
+  }
 
   return (
     <RoomQueueBoard

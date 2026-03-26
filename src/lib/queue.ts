@@ -388,11 +388,11 @@ export function getNextStatus(status: QueueStatus): QueueStatus | null {
 export function getNextStatusLabel(status: QueueStatus) {
   switch (status) {
     case "aguardando":
-      return "Chamar";
+      return "Chamar paciente";
     case "chamado":
       return "Iniciar exame";
     case "em_atendimento":
-      return "Finalizar";
+      return "Concluir etapa";
     default:
       return null;
   }

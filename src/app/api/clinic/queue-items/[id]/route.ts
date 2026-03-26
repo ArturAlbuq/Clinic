@@ -17,6 +17,12 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  const requestOrigin = request.headers.get("origin");
+
+  if (requestOrigin && requestOrigin !== new URL(request.url).origin) {
+    return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
+  }
+
   const { profile, supabase } = await requireRole(["atendimento", "admin"]);
   const { id } = await context.params;
   const body = (await request.json()) as UpdateQueueItemBody;

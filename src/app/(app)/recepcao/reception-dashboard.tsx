@@ -5,6 +5,7 @@ import { AttendanceTimeline } from "@/components/attendance-timeline";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityBadge } from "@/components/priority-badge";
+import { RealtimeStatusBadge } from "@/components/realtime-status";
 import {
   ATTENDANCE_STATUS_LABELS,
   RECEPTION_STATUS_FILTERS,
@@ -48,11 +49,17 @@ export function ReceptionDashboard({
   initialItems,
   rooms,
 }: ReceptionDashboardProps) {
-  const { attendances, queueItems, setAttendances, setQueueItems } =
-    useRealtimeClinicData({
-      initialAttendances,
-      initialQueueItems: initialItems,
-    });
+  const {
+    attendances,
+    queueItems,
+    realtimeError,
+    realtimeStatus,
+    setAttendances,
+    setQueueItems,
+  } = useRealtimeClinicData({
+    initialAttendances,
+    initialQueueItems: initialItems,
+  });
   const [patientName, setPatientName] = useState("");
   const [selectedExams, setSelectedExams] = useState<ExamType[]>([]);
   const [priority, setPriority] = useState<AttendancePriority>("normal");
@@ -60,6 +67,7 @@ export function ReceptionDashboard({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
 
   const groupedAttendances = useMemo(() => {
     const grouped = groupAttendancesWithQueueItems(attendances, queueItems);
@@ -101,9 +109,10 @@ export function ReceptionDashboard({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
+    setFormSuccess("");
 
     if (!selectedExams.length) {
-      setFormError("Selecione ao menos uma sala/exame.");
+      setFormError("Selecione ao menos uma sala.");
       return;
     }
 
@@ -130,7 +139,7 @@ export function ReceptionDashboard({
     };
 
     if (!response.ok || !payload.attendance) {
-      setFormError(payload.error || "Não foi possível criar o atendimento.");
+      setFormError(payload.error || "Não foi possível salvar o atendimento.");
       setIsSubmitting(false);
       return;
     }
@@ -141,6 +150,7 @@ export function ReceptionDashboard({
     setSelectedExams([]);
     setPriority("normal");
     setNotes("");
+    setFormSuccess("Atendimento enviado para as salas selecionadas.");
     setIsSubmitting(false);
   }
 
@@ -148,16 +158,21 @@ export function ReceptionDashboard({
     <div className="space-y-6">
       <section className="grid gap-4 xl:grid-cols-[1.05fr_1.35fr]">
         <div className="app-panel rounded-[30px] px-6 py-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            Recepção
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-            Cadastro rápido do atendimento
-          </h2>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            Cadastre o paciente uma vez, selecione uma ou mais salas, defina a
-            prioridade e envie tudo para o fluxo em tempo real.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+                Recepção
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+                Cadastro rápido do atendimento
+              </h2>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
+                Cadastre o paciente uma vez, selecione uma ou mais salas, defina a
+                prioridade e envie tudo para o fluxo em tempo real.
+              </p>
+            </div>
+            <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
+          </div>
 
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <label className="block">
@@ -244,6 +259,12 @@ export function ReceptionDashboard({
             {formError ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {formError}
+              </div>
+            ) : null}
+
+            {formSuccess ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                {formSuccess}
               </div>
             ) : null}
 

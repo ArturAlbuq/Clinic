@@ -14,6 +14,11 @@ type CreateAttendanceBody = {
   selectedExams?: ExamType[];
 };
 
+type CreateAttendancePayload = {
+  attendance: AttendanceRecord;
+  queueItems: QueueItemRecord[];
+};
+
 const ALLOWED_PRIORITIES = new Set<AttendancePriority>(["normal", "alta", "urgente"]);
 const ALLOWED_EXAMS = new Set<ExamType>([
   "fotografia_escaneamento",
@@ -23,7 +28,13 @@ const ALLOWED_EXAMS = new Set<ExamType>([
 ]);
 
 export async function POST(request: Request) {
-  const { profile, supabase } = await requireRole(["recepcao", "admin"]);
+  const requestOrigin = request.headers.get("origin");
+
+  if (requestOrigin && requestOrigin !== new URL(request.url).origin) {
+    return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
+  }
+
+  const { supabase } = await requireRole(["recepcao", "admin"]);
   const body = (await request.json()) as CreateAttendanceBody;
   const patientName = body.patientName?.trim() ?? "";
   const notes = body.notes?.trim() ?? "";
@@ -46,51 +57,24 @@ export async function POST(request: Request) {
     selectedExams.some((examType) => !ALLOWED_EXAMS.has(examType))
   ) {
     return NextResponse.json(
-      { error: "Selecione ao menos uma sala/exame válida." },
+      { error: "Selecione ao menos uma sala válida." },
       { status: 400 },
     );
   }
 
-  const { data: attendance, error: attendanceError } = await supabase
-    .from("attendances")
-    .insert({
-      created_by: profile.id,
-      notes: notes || null,
-      patient_name: patientName,
-      priority,
-    })
-    .select("*")
-    .single();
-
-  if (attendanceError || !attendance) {
-    return NextResponse.json(
-      { error: attendanceError?.message || "Não foi possível criar o atendimento." },
-      { status: 400 },
-    );
-  }
-
-  const createdAttendance = attendance as AttendanceRecord;
-  const { data: queueItems, error: queueError } = await supabase
-    .from("queue_items")
-    .insert(
-      selectedExams.map((examType) => ({
-        attendance_id: createdAttendance.id,
-        exam_type: examType,
-      })),
-    )
-    .select("*");
-
-  if (queueError || !queueItems) {
-    await supabase.from("attendances").delete().eq("id", createdAttendance.id);
-
-    return NextResponse.json(
-      { error: queueError?.message || "Não foi possível criar os itens da fila." },
-      { status: 400 },
-    );
-  }
-
-  return NextResponse.json({
-    attendance: createdAttendance,
-    queueItems: queueItems as QueueItemRecord[],
+  const { data, error } = await supabase.rpc("create_attendance_with_queue_items", {
+    p_exam_types: selectedExams,
+    p_notes: notes || null,
+    p_patient_name: patientName,
+    p_priority: priority,
   });
+
+  if (error || !data) {
+    return NextResponse.json(
+      { error: "Não foi possível salvar o atendimento completo." },
+      { status: 400 },
+    );
+  }
+
+  return NextResponse.json(data as CreateAttendancePayload);
 }

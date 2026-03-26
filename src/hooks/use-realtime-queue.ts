@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { RoomSlug } from "@/lib/constants";
+import type { RealtimeStatus, RoomSlug } from "@/lib/constants";
 import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import type { QueueDateRange } from "@/lib/queue";
@@ -58,6 +58,8 @@ export function useRealtimeClinicData(options: {
   const { initialAttendances, initialQueueItems, range, roomSlug } = options;
   const [attendances, setAttendances] = useState(initialAttendances);
   const [queueItems, setQueueItems] = useState(initialQueueItems);
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>("conectando");
+  const [realtimeError, setRealtimeError] = useState("");
   const rangeKey = range ? `${range.startIso}:${range.endIso}` : "today";
 
   useEffect(() => {
@@ -72,6 +74,8 @@ export function useRealtimeClinicData(options: {
     const supabase = getBrowserSupabaseClient();
 
     if (!supabase) {
+      setRealtimeStatus("offline");
+      setRealtimeError("Supabase não configurado para sincronização em tempo real.");
       return;
     }
 
@@ -90,10 +94,43 @@ export function useRealtimeClinicData(options: {
 
         setAttendances(nextAttendances);
         setQueueItems(nextQueueItems);
-      } catch {
-        return;
+        setRealtimeError("");
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setRealtimeStatus("instavel");
+        setRealtimeError(
+          error instanceof Error
+            ? error.message
+            : "Falha ao sincronizar os dados em tempo real.",
+        );
       }
     }
+
+    function handleChannelStatus(status: string) {
+      if (!isActive) {
+        return;
+      }
+
+      if (status === "SUBSCRIBED") {
+        setRealtimeStatus("conectado");
+        setRealtimeError("");
+        return;
+      }
+
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        setRealtimeStatus("instavel");
+        return;
+      }
+
+      if (status === "CLOSED") {
+        setRealtimeStatus("offline");
+      }
+    }
+
+    setRealtimeStatus("conectando");
 
     const attendanceChannel = supabase
       .channel(roomSlug ? `attendances-${roomSlug}` : "attendances-all")
@@ -108,7 +145,7 @@ export function useRealtimeClinicData(options: {
           void refreshAll();
         },
       )
-      .subscribe();
+      .subscribe(handleChannelStatus);
 
     const queueChannel = supabase
       .channel(roomSlug ? `queue-items-${roomSlug}` : "queue-items-all")
@@ -123,10 +160,11 @@ export function useRealtimeClinicData(options: {
           void refreshAll();
         },
       )
-      .subscribe();
+      .subscribe(handleChannelStatus);
 
     return () => {
       isActive = false;
+      setRealtimeStatus("offline");
       void supabase.removeChannel(attendanceChannel);
       void supabase.removeChannel(queueChannel);
     };
@@ -135,6 +173,8 @@ export function useRealtimeClinicData(options: {
   return {
     attendances,
     queueItems,
+    realtimeError,
+    realtimeStatus,
     setAttendances,
     setQueueItems,
   };

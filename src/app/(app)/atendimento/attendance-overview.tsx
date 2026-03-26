@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityBadge } from "@/components/priority-badge";
-import { ROOM_BY_SLUG, ROOM_ORDER } from "@/lib/constants";
+import { RealtimeStatusBadge } from "@/components/realtime-status";
+import { ROOM_BY_SLUG } from "@/lib/constants";
 import type {
   AttendanceRecord,
   ExamRoomRecord,
@@ -26,11 +28,13 @@ type AttendanceOverviewProps = {
 export function AttendanceOverview({
   initialAttendances,
   initialItems,
+  rooms,
 }: AttendanceOverviewProps) {
-  const { attendances, queueItems } = useRealtimeClinicData({
-    initialAttendances,
-    initialQueueItems: initialItems,
-  });
+  const { attendances, queueItems, realtimeError, realtimeStatus } =
+    useRealtimeClinicData({
+      initialAttendances,
+      initialQueueItems: initialItems,
+    });
 
   const enrichedItems = combineQueueItemsWithAttendances(queueItems, attendances);
 
@@ -42,32 +46,46 @@ export function AttendanceOverview({
     (attendance) => attendance.priority === "urgente",
   ).length;
 
+  if (!rooms.length) {
+    return (
+      <EmptyState
+        title="Nenhuma sala liberada"
+        description="Sua conta ainda não foi vinculada a uma sala de atendimento."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="app-panel rounded-[30px] px-6 py-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            Atendimento
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-            Escolha a sala e acompanhe a fila por prioridade.
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            Cada sala recebe apenas seus itens. A prioridade do atendimento
-            aparece na fila e a ordenação respeita urgente, alta e normal.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+                Atendimento
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+                Abra a sua sala e acompanhe a fila operacional.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                Cada sala vê apenas os próprios pacientes, com prioridade e ordem de
+                chegada preservadas.
+              </p>
+            </div>
+            <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
+          </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <MetricCard
-            label="Aguardando"
+            label="Na fila"
             value={String(waitingCount)}
-            helper="Itens prontos para chamada."
+            helper="Pacientes aguardando chamada."
             accent="amber"
           />
           <MetricCard
-            label="Em fluxo"
+            label="Em exame"
             value={String(activeCount)}
-            helper="Chamados ou em atendimento."
+            helper="Pacientes chamados ou em sala."
             accent="teal"
           />
           <MetricCard
@@ -78,18 +96,23 @@ export function AttendanceOverview({
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-        {ROOM_ORDER.map((roomSlug) => {
-          const room = ROOM_BY_SLUG[roomSlug];
+      <section
+        className={`grid gap-4 ${
+          rooms.length === 1 ? "lg:grid-cols-1" : "lg:grid-cols-2 2xl:grid-cols-4"
+        }`}
+      >
+        {rooms.map((roomEntry) => {
+          const room = ROOM_BY_SLUG[roomEntry.slug as keyof typeof ROOM_BY_SLUG];
           const roomItems = sortRoomQueueItems(
-            enrichedItems.filter((item) => item.room_slug === roomSlug),
+            enrichedItems.filter((item) => item.room_slug === roomEntry.slug),
           );
-          const latestItem = roomItems[0];
+          const nextItem =
+            roomItems.find((item) => item.status === "aguardando") ?? null;
           const hasNewPatient = roomItems.some((item) => isQueueItemNew(item));
 
           return (
             <Link
-              key={roomSlug}
+              key={roomEntry.slug}
               href={room.route}
               className="app-panel group rounded-[30px] px-6 py-6 hover:-translate-y-1 hover:border-cyan-200 hover:shadow-[0_26px_60px_rgba(15,23,42,0.1)]"
             >
@@ -112,7 +135,7 @@ export function AttendanceOverview({
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-[22px] border border-amber-200/80 bg-amber-50 px-4 py-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                    Aguardando
+                    Na fila
                   </p>
                   <p className="mt-2 text-3xl font-semibold text-amber-900">
                     {roomItems.filter((item) => item.status === "aguardando").length}
@@ -120,7 +143,7 @@ export function AttendanceOverview({
                 </div>
                 <div className="rounded-[22px] border border-emerald-200/80 bg-emerald-50 px-4 py-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                    Em fluxo
+                    Em exame
                   </p>
                   <p className="mt-2 text-3xl font-semibold text-emerald-900">
                     {
@@ -136,29 +159,29 @@ export function AttendanceOverview({
 
               <div className="mt-5 rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Próximo da fila
+                  Próximo paciente
                 </p>
-                {latestItem ? (
+                {nextItem ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-slate-900">
-                      {latestItem.attendance?.patient_name}
+                      {nextItem.attendance?.patient_name}
                     </span>
-                    {latestItem.attendance ? (
-                      <PriorityBadge priority={latestItem.attendance.priority} />
+                    {nextItem.attendance ? (
+                      <PriorityBadge priority={nextItem.attendance.priority} />
                     ) : null}
                     <span className="text-sm text-slate-600">
-                      as {formatClock(latestItem.attendance?.created_at ?? latestItem.created_at)}
+                      desde {formatClock(nextItem.attendance?.created_at ?? nextItem.created_at)}
                     </span>
                   </div>
                 ) : (
                   <p className="mt-2 text-sm text-slate-700">
-                    Nenhum paciente na fila hoje.
+                    Nenhum paciente aguardando nesta sala.
                   </p>
                 )}
               </div>
 
               <div className="mt-5 text-sm font-semibold text-cyan-800 group-hover:text-cyan-900">
-                Abrir fila da sala
+                Abrir operação da sala
               </div>
             </Link>
           );
