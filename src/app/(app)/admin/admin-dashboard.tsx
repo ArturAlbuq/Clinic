@@ -410,6 +410,7 @@ export function AdminDashboard({
           label="Cancelados"
           value={String(canceledAttendances)}
           helper="Atendimentos encerrados com motivo."
+          accent="rose"
         />
       </section>
 
@@ -811,13 +812,18 @@ function HighlightPill({
   value,
 }: {
   label: string;
-  tone: "amber" | "slate" | "teal";
+  tone: "amber" | "rose" | "slate" | "teal";
   value: string;
 }) {
   const styles = {
-    amber: "border-amber-200/80 bg-amber-50/80 text-amber-900",
-    slate: "border-slate-200 bg-white/90 text-slate-900",
-    teal: "border-cyan-200/80 bg-cyan-50/80 text-cyan-900",
+    amber:
+      "border-amber-300 bg-gradient-to-br from-amber-100 via-amber-50 to-orange-100 text-amber-950",
+    rose:
+      "border-rose-300 bg-gradient-to-br from-rose-100 via-rose-50 to-pink-100 text-rose-950",
+    slate:
+      "border-slate-300 bg-gradient-to-br from-slate-100 via-white to-slate-50 text-slate-950",
+    teal:
+      "border-cyan-300 bg-gradient-to-br from-cyan-100 via-sky-50 to-blue-100 text-cyan-950",
   } as const;
 
   return (
@@ -851,10 +857,22 @@ function RoomSummaryCard({
       <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
         {room?.name ?? roomSlug}
       </h3>
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <SmallReportCard label="Fila" value={String(waitingCount)} />
-        <SmallReportCard label="Ativos" value={String(activeCount)} />
-        <SmallReportCard label="Cancelados" value={String(canceledCount)} />
+      <div className="mt-5 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-3">
+        <SmallReportCard
+          label="Fila"
+          value={String(waitingCount)}
+          tone="amber"
+        />
+        <SmallReportCard
+          label="Ativos"
+          value={String(activeCount)}
+          tone="teal"
+        />
+        <SmallReportCard
+          label="Cancelados"
+          value={String(canceledCount)}
+          tone="rose"
+        />
       </div>
       <div className="mt-4 rounded-[22px] border border-slate-200 bg-white/80 px-4 py-4">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -1105,17 +1123,35 @@ function AttendanceStatusBadge({ status }: { status: AttendanceOverallStatus }) 
 
 function SmallReportCard({
   label,
+  tone = "slate",
   value,
 }: {
   label: string;
+  tone?: "amber" | "rose" | "slate" | "teal";
   value: string;
 }) {
+  const styles = {
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    rose: "border-rose-200 bg-rose-50 text-rose-950",
+    slate: "border-slate-200 bg-slate-50 text-slate-900",
+    teal: "border-cyan-200 bg-cyan-50 text-cyan-950",
+  } as const;
+
+  const labelStyles = {
+    amber: "text-amber-700",
+    rose: "text-rose-700",
+    slate: "text-slate-500",
+    teal: "text-cyan-700",
+  } as const;
+
   return (
-    <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-3 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+    <div className={`min-w-0 rounded-[18px] border px-3 py-3 ${styles[tone]}`}>
+      <p
+        className={`min-w-0 whitespace-normal break-words text-[10px] font-semibold uppercase tracking-[0.08em] leading-4 ${labelStyles[tone]}`}
+      >
         {label}
       </p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 text-sm font-semibold leading-none">{value}</p>
     </div>
   );
 }
