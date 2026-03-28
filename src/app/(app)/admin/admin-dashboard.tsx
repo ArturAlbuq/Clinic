@@ -184,7 +184,11 @@ export function AdminDashboard({
       activeCount: roomItems.filter(
         (item) => item.status === "chamado" || item.status === "em_atendimento",
       ).length,
-      canceledCount: roomItems.filter((item) => item.status === "cancelado").length,
+      canceledCount: roomItems.filter(
+        (item) =>
+          item.status === "cancelado" ||
+          Boolean(attendances.find((attendance) => attendance.id === item.attendance_id)?.canceled_at),
+      ).length,
       waitingCount: roomItems.filter((item) => item.status === "aguardando").length,
     };
   });

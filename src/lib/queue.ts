@@ -4,6 +4,7 @@ import {
   getClinicDateParts,
   parseDateInput as parseClinicDateInput,
 } from "@/lib/date";
+import { parseLegacyCancellationMetadata } from "@/lib/legacy-cancellation";
 import {
   NEW_ITEM_WINDOW_MINUTES,
   PRIORITY_ORDER,
@@ -41,6 +42,34 @@ type QueueResolutionItem = Pick<
   "called_at" | "created_at" | "finished_at" | "started_at" | "canceled_at"
 >;
 
+export function normalizeAttendanceRecord(attendance: AttendanceRecord) {
+  const legacyCancellation = parseLegacyCancellationMetadata(attendance.notes);
+
+  return {
+    ...attendance,
+    canceled_at: attendance.canceled_at ?? legacyCancellation.canceledAt ?? null,
+    canceled_by: attendance.canceled_by ?? legacyCancellation.canceledBy ?? null,
+    cancellation_authorized_by:
+      attendance.cancellation_authorized_by ??
+      legacyCancellation.authorizedBy ??
+      null,
+    cancellation_reason:
+      attendance.cancellation_reason ?? legacyCancellation.reason ?? null,
+    notes: legacyCancellation.notes,
+  } satisfies AttendanceRecord;
+}
+
+export function normalizeQueueItemRecord(queueItem: QueueItemRecord) {
+  return {
+    ...queueItem,
+    called_by: queueItem.called_by ?? null,
+    canceled_at: queueItem.canceled_at ?? null,
+    finished_by: queueItem.finished_by ?? null,
+    requested_quantity: queueItem.requested_quantity ?? 1,
+    started_by: queueItem.started_by ?? null,
+  } satisfies QueueItemRecord;
+}
+
 export async function fetchAttendances(
   supabase: QueueClient,
   options?: {
@@ -59,7 +88,7 @@ export async function fetchAttendances(
     throw error;
   }
 
-  return (data ?? []) as AttendanceRecord[];
+  return ((data ?? []) as AttendanceRecord[]).map(normalizeAttendanceRecord);
 }
 
 export async function fetchQueueItems(
@@ -88,7 +117,7 @@ export async function fetchQueueItems(
     throw error;
   }
 
-  return (data ?? []) as QueueItemRecord[];
+  return ((data ?? []) as QueueItemRecord[]).map(normalizeQueueItemRecord);
 }
 
 export async function fetchExamRooms(

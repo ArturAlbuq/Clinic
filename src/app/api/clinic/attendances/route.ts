@@ -6,6 +6,7 @@ import type {
   ExamType,
   QueueItemRecord,
 } from "@/lib/database.types";
+import { normalizeAttendanceRecord, normalizeQueueItemRecord } from "@/lib/queue";
 
 type CreateAttendanceBody = {
   examQuantities?: Partial<Record<ExamType, number>>;
@@ -52,6 +53,34 @@ function normalizeExamQuantities(
   return normalized;
 }
 
+function normalizeCreateAttendancePayload(
+  payload: CreateAttendancePayload,
+  examQuantities: Partial<Record<ExamType, number>>,
+) {
+  return {
+    attendance: normalizeAttendanceRecord(payload.attendance),
+    queueItems: payload.queueItems.map((queueItem) =>
+      normalizeQueueItemRecord({
+        ...queueItem,
+        requested_quantity:
+          queueItem.requested_quantity ?? examQuantities[queueItem.exam_type] ?? 1,
+      } as QueueItemRecord),
+    ),
+  } satisfies CreateAttendancePayload;
+}
+
+function isLegacyRpcSignatureError(message?: string | null) {
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes(
+      "Could not find the function public.create_attendance_with_queue_items",
+    ) && message.includes("p_exam_quantities")
+  );
+}
+
 export async function POST(request: Request) {
   const requestOrigin = request.headers.get("origin");
 
@@ -89,20 +118,41 @@ export async function POST(request: Request) {
 
   const examQuantities = normalizeExamQuantities(selectedExams, body.examQuantities);
 
-  const { data, error } = await supabase.rpc("create_attendance_with_queue_items", {
-    p_exam_quantities: examQuantities,
-    p_exam_types: selectedExams,
-    p_notes: notes || null,
-    p_patient_name: patientName,
-    p_priority: priority,
-  });
+  const attemptWithQuantities = await supabase.rpc(
+    "create_attendance_with_queue_items",
+    {
+      p_exam_quantities: examQuantities,
+      p_exam_types: selectedExams,
+      p_notes: notes || null,
+      p_patient_name: patientName,
+      p_priority: priority,
+    },
+  );
 
-  if (error || !data) {
+  let payload = attemptWithQuantities.data as CreateAttendancePayload | null;
+  let rpcError = attemptWithQuantities.error;
+
+  if (!payload && isLegacyRpcSignatureError(rpcError?.message)) {
+    const legacyAttempt = await supabase.rpc("create_attendance_with_queue_items", {
+      p_exam_types: selectedExams,
+      p_notes: notes || null,
+      p_patient_name: patientName,
+      p_priority: priority,
+    });
+
+    payload = legacyAttempt.data as CreateAttendancePayload | null;
+    rpcError = legacyAttempt.error;
+  }
+
+  if (rpcError || !payload) {
     return NextResponse.json(
-      { error: "Não foi possível salvar o atendimento completo." },
+      {
+        error:
+          rpcError?.message || "Não foi possível salvar o atendimento completo.",
+      },
       { status: 400 },
     );
   }
 
-  return NextResponse.json(data as CreateAttendancePayload);
+  return NextResponse.json(normalizeCreateAttendancePayload(payload, examQuantities));
 }

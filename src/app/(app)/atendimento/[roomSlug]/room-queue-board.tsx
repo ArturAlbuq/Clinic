@@ -83,8 +83,12 @@ export function RoomQueueBoard({
     [queueItemsWithAttendance, roomSlug],
   );
 
-  const visibleItems = orderedItems.filter((item) => item.status !== "cancelado");
-  const canceledItems = orderedItems.filter((item) => item.status === "cancelado");
+  const visibleItems = orderedItems.filter(
+    (item) => item.status !== "cancelado" && !item.attendance?.canceled_at,
+  );
+  const canceledItems = orderedItems.filter(
+    (item) => item.status === "cancelado" || Boolean(item.attendance?.canceled_at),
+  );
 
   async function advanceStatus(item: QueueItemWithAttendance) {
     const nextStatus = getNextStatus(item.status);
