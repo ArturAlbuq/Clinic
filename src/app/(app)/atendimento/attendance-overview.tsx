@@ -42,8 +42,8 @@ export function AttendanceOverview({
   const activeCount = queueItems.filter(
     (item) => item.status === "chamado" || item.status === "em_atendimento",
   ).length;
-  const urgentCount = attendances.filter(
-    (attendance) => attendance.priority === "urgente",
+  const topPriorityCount = attendances.filter(
+    (attendance) => attendance.priority === "oitenta_mais",
   ).length;
 
   if (!rooms.length) {
@@ -68,8 +68,8 @@ export function AttendanceOverview({
                 Abra a sua sala e acompanhe a fila operacional.
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                Cada sala vê apenas os próprios pacientes, com prioridade e ordem de
-                chegada preservadas.
+                Cada sala vê apenas os próprios pacientes, com prioridade e ordem
+                de chegada preservadas.
               </p>
             </div>
             <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
@@ -89,9 +89,9 @@ export function AttendanceOverview({
             accent="teal"
           />
           <MetricCard
-            label="Urgentes"
-            value={String(urgentCount)}
-            helper="Atendimentos com prioridade máxima hoje."
+            label="80+"
+            value={String(topPriorityCount)}
+            helper="Pacientes com prioridade máxima hoje."
           />
         </div>
       </section>
@@ -162,16 +162,21 @@ export function AttendanceOverview({
                   Próximo paciente
                 </p>
                 {nextItem ? (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-slate-900">
-                      {nextItem.attendance?.patient_name}
-                    </span>
-                    {nextItem.attendance ? (
-                      <PriorityBadge priority={nextItem.attendance.priority} />
-                    ) : null}
-                    <span className="text-sm text-slate-600">
-                      desde {formatClock(nextItem.attendance?.created_at ?? nextItem.created_at)}
-                    </span>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-900">
+                        {nextItem.attendance?.patient_name}
+                      </span>
+                      {nextItem.attendance ? (
+                        <PriorityBadge priority={nextItem.attendance.priority} />
+                      ) : null}
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      desde{" "}
+                      {formatClock(
+                        nextItem.attendance?.created_at ?? nextItem.created_at,
+                      )}
+                    </p>
                   </div>
                 ) : (
                   <p className="mt-2 text-sm text-slate-700">

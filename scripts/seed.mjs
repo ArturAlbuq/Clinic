@@ -28,20 +28,14 @@ function loadEnvFile(fileName) {
   }
 }
 
-function resolveSeedPassword(envKey, fallback) {
-  const explicitPassword = process.env[envKey]?.trim();
+function requiredSeedPassword(envKey) {
+  const password = process.env[envKey]?.trim();
 
-  if (explicitPassword) {
-    return explicitPassword;
+  if (!password) {
+    throw new Error(`Defina ${envKey} no .env.local antes de rodar o seed.`);
   }
 
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      `Defina ${envKey} explicitamente para rodar o seed fora de ambiente local.`,
-    );
-  }
-
-  return fallback;
+  return password;
 }
 
 loadEnvFile(".env.local");
@@ -64,25 +58,22 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   },
 });
 
-const DEFAULT_PASSWORD = resolveSeedPassword("SEED_DEFAULT_PASSWORD", "Clinic123!");
-const ADMIN_PASSWORD = resolveSeedPassword("SEED_ADMIN_PASSWORD", "PadrePio123");
-
 const rooms = [
   {
     exam_type: "fotografia_escaneamento",
-    name: "Fotografia / escaneamento intra-oral",
+    name: "Fotos/escaneamento",
     slug: "fotografia-escaneamento",
     sort_order: 1,
   },
   {
     exam_type: "periapical",
-    name: "Periapical",
+    name: "Radiografia intra-oral",
     slug: "periapical",
     sort_order: 2,
   },
   {
     exam_type: "panoramico",
-    name: "Panorâmico",
+    name: "Radiografia extra-oral",
     slug: "panoramico",
     sort_order: 3,
   },
@@ -100,49 +91,63 @@ const users = [
   {
     email: "admin@clinic.local",
     full_name: "Admin Clínica",
-    password: ADMIN_PASSWORD,
+    passwordEnv: "SEED_ADMIN_PASSWORD",
     role: "admin",
     room_slugs: [],
   },
   {
     email: "recepcao1@clinic.local",
     full_name: "Recepção 1",
+    passwordEnv: "SEED_RECEPCAO1_PASSWORD",
     role: "recepcao",
     room_slugs: [],
   },
   {
-    email: "recepcao2@clinic.local",
-    full_name: "Recepção 2",
+    email: "geovanna@clinic.local",
+    full_name: "GEOVANNA",
+    passwordEnv: "SEED_GEOVANNA_PASSWORD",
     role: "recepcao",
     room_slugs: [],
   },
   {
-    email: "recepcao3@clinic.local",
-    full_name: "Recepção 3",
+    email: "clara@clinic.local",
+    full_name: "CLARA",
+    passwordEnv: "SEED_CLARA_PASSWORD",
+    role: "recepcao",
+    room_slugs: [],
+  },
+  {
+    email: "karol@clinic.local",
+    full_name: "KAROL",
+    passwordEnv: "SEED_KAROL_PASSWORD",
     role: "recepcao",
     room_slugs: [],
   },
   {
     email: "atendimento1@clinic.local",
     full_name: "Atendimento 1",
+    passwordEnv: "SEED_ATENDIMENTO1_PASSWORD",
     role: "atendimento",
     room_slugs: allRoomSlugs,
   },
   {
-    email: "atendimento2@clinic.local",
-    full_name: "Atendimento 2",
+    email: "diego@clinic.local",
+    full_name: "DIEGO",
+    passwordEnv: "SEED_DIEGO_PASSWORD",
     role: "atendimento",
     room_slugs: allRoomSlugs,
   },
   {
-    email: "atendimento3@clinic.local",
-    full_name: "Atendimento 3",
+    email: "ayrton@clinic.local",
+    full_name: "AYRTON",
+    passwordEnv: "SEED_AYRTON_PASSWORD",
     role: "atendimento",
     room_slugs: allRoomSlugs,
   },
   {
-    email: "atendimento4@clinic.local",
-    full_name: "Atendimento 4",
+    email: "juliane@clinic.local",
+    full_name: "JULIANE",
+    passwordEnv: "SEED_JULIANE_PASSWORD",
     role: "atendimento",
     room_slugs: allRoomSlugs,
   },
@@ -171,7 +176,7 @@ async function seedUsers() {
 
   for (const user of users) {
     const existingUser = authUsers.users.find((entry) => entry.email === user.email);
-    const password = user.password ?? DEFAULT_PASSWORD;
+    const password = requiredSeedPassword(user.passwordEnv);
 
     let userId = existingUser?.id;
 
@@ -184,6 +189,7 @@ async function seedUsers() {
           password,
           user_metadata: {
             full_name: user.full_name,
+            role: user.role,
           },
         },
       );
@@ -200,6 +206,7 @@ async function seedUsers() {
         password,
         user_metadata: {
           full_name: user.full_name,
+          role: user.role,
         },
       });
 
@@ -251,9 +258,11 @@ async function main() {
   await seedUsers();
 
   console.log("Seed concluído.");
-  console.log("Senha do admin:", ADMIN_PASSWORD);
-  console.log("Senha padrão para os demais usuários:", DEFAULT_PASSWORD);
-  console.log("Usuários criados:", users.map((user) => user.email).join(", "));
+  console.log(
+    "Usuários gerenciados:",
+    users.map((user) => `${user.email} (${user.full_name})`).join(", "),
+  );
+  console.log("Senhas: configuradas por variáveis de ambiente individuais.");
 }
 
 main().catch((error) => {

@@ -8,6 +8,8 @@ import { PriorityBadge } from "@/components/priority-badge";
 import { RealtimeStatusBadge } from "@/components/realtime-status";
 import {
   ATTENDANCE_STATUS_LABELS,
+  EXAM_LABELS,
+  PRIORITY_LABELS,
   RECEPTION_STATUS_FILTERS,
 } from "@/lib/constants";
 import type {
@@ -19,7 +21,7 @@ import type {
   ExamType,
   QueueItemRecord,
 } from "@/lib/database.types";
-import { formatClock } from "@/lib/date";
+import { formatClock, formatDateTime } from "@/lib/date";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import {
   getAttendanceOverallStatus,
@@ -40,9 +42,14 @@ const FILTER_LABELS: Record<StatusFilter, string> = {
   aguardando: "Aguardando",
   em_andamento: "Em andamento",
   finalizado: "Finalizado",
+  cancelado: "Cancelado",
 };
 
-const PRIORITY_OPTIONS: AttendancePriority[] = ["normal", "alta", "urgente"];
+const PRIORITY_OPTIONS: AttendancePriority[] = [
+  "normal",
+  "sessenta_mais_outras",
+  "oitenta_mais",
+];
 
 export function ReceptionDashboard({
   initialAttendances,
@@ -62,6 +69,9 @@ export function ReceptionDashboard({
   });
   const [patientName, setPatientName] = useState("");
   const [selectedExams, setSelectedExams] = useState<ExamType[]>([]);
+  const [examQuantities, setExamQuantities] = useState<
+    Partial<Record<ExamType, number>>
+  >({});
   const [priority, setPriority] = useState<AttendancePriority>("normal");
   const [notes, setNotes] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
@@ -80,30 +90,65 @@ export function ReceptionDashboard({
         ? groupedAttendances
         : groupedAttendances.filter(
             (attendance) =>
-              getAttendanceOverallStatus(attendance.queueItems) === statusFilter,
+              getAttendanceOverallStatus(attendance, attendance.queueItems) ===
+              statusFilter,
           ),
     [groupedAttendances, statusFilter],
   );
 
   const totalWaiting = groupedAttendances.filter(
     (attendance) =>
-      getAttendanceOverallStatus(attendance.queueItems) === "aguardando",
+      getAttendanceOverallStatus(attendance, attendance.queueItems) ===
+      "aguardando",
   ).length;
   const totalInProgress = groupedAttendances.filter(
     (attendance) =>
-      getAttendanceOverallStatus(attendance.queueItems) === "em_andamento",
+      getAttendanceOverallStatus(attendance, attendance.queueItems) ===
+      "em_andamento",
   ).length;
   const totalFinished = groupedAttendances.filter(
     (attendance) =>
-      getAttendanceOverallStatus(attendance.queueItems) === "finalizado",
+      getAttendanceOverallStatus(attendance, attendance.queueItems) ===
+      "finalizado",
+  ).length;
+  const totalCanceled = groupedAttendances.filter(
+    (attendance) =>
+      getAttendanceOverallStatus(attendance, attendance.queueItems) ===
+      "cancelado",
   ).length;
 
   function toggleExam(examType: ExamType) {
-    setSelectedExams((current) =>
-      current.includes(examType)
-        ? current.filter((entry) => entry !== examType)
-        : [...current, examType],
-    );
+    setSelectedExams((current) => {
+      const alreadySelected = current.includes(examType);
+
+      if (alreadySelected) {
+        setExamQuantities((currentQuantities) => {
+          const nextQuantities = { ...currentQuantities };
+          delete nextQuantities[examType];
+          return nextQuantities;
+        });
+
+        return current.filter((entry) => entry !== examType);
+      }
+
+      setExamQuantities((currentQuantities) => ({
+        ...currentQuantities,
+        [examType]: currentQuantities[examType] ?? 1,
+      }));
+
+      return [...current, examType];
+    });
+  }
+
+  function updateExamQuantity(examType: ExamType, rawValue: string) {
+    const parsed = Number(rawValue);
+    const quantity =
+      Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 99) : 1;
+
+    setExamQuantities((current) => ({
+      ...current,
+      [examType]: quantity,
+    }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -112,7 +157,7 @@ export function ReceptionDashboard({
     setFormSuccess("");
 
     if (!selectedExams.length) {
-      setFormError("Selecione ao menos uma sala.");
+      setFormError("Selecione ao menos um exame.");
       return;
     }
 
@@ -125,6 +170,7 @@ export function ReceptionDashboard({
       },
       credentials: "same-origin",
       body: JSON.stringify({
+        examQuantities,
         notes,
         patientName,
         priority,
@@ -145,12 +191,16 @@ export function ReceptionDashboard({
     }
 
     setAttendances((current) => [payload.attendance as AttendanceRecord, ...current]);
-    setQueueItems((current) => [...current, ...((payload.queueItems ?? []) as QueueItemRecord[])]);
+    setQueueItems((current) => [
+      ...current,
+      ...((payload.queueItems ?? []) as QueueItemRecord[]),
+    ]);
     setPatientName("");
     setSelectedExams([]);
+    setExamQuantities({});
     setPriority("normal");
     setNotes("");
-    setFormSuccess("Atendimento enviado para as salas selecionadas.");
+    setFormSuccess("Atendimento enviado para os exames selecionados.");
     setIsSubmitting(false);
   }
 
@@ -164,11 +214,11 @@ export function ReceptionDashboard({
                 Recepção
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                Cadastro rápido do atendimento
+                Cadastro rápido por exame
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-                Cadastre o paciente uma vez, selecione uma ou mais salas, defina a
-                prioridade e envie tudo para o fluxo em tempo real.
+                A recepção escolhe os exames, informa a quantidade quando fizer
+                sentido e o sistema direciona cada etapa para a sala correta.
               </p>
             </div>
             <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
@@ -192,31 +242,59 @@ export function ReceptionDashboard({
 
             <div>
               <span className="mb-2 block text-sm font-semibold text-slate-700">
-                Salas / exames
+                Exames
               </span>
               <div className="grid gap-3 sm:grid-cols-2">
                 {rooms.map((room) => {
                   const checked = selectedExams.includes(room.exam_type);
+                  const quantity = examQuantities[room.exam_type] ?? 1;
 
                   return (
                     <label
                       key={room.slug}
                       className={
                         checked
-                          ? "rounded-[22px] border border-cyan-300 bg-cyan-50 px-4 py-3"
-                          : "rounded-[22px] border border-slate-200 bg-white px-4 py-3"
+                          ? "rounded-[22px] border border-cyan-300 bg-cyan-50 px-4 py-4"
+                          : "rounded-[22px] border border-slate-200 bg-white px-4 py-4"
                       }
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-start gap-3">
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleExam(room.exam_type)}
-                          className="h-4 w-4 rounded border-slate-300 text-cyan-600"
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-cyan-600"
                         />
-                        <span className="text-sm font-medium text-slate-800">
-                          {room.name}
-                        </span>
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {EXAM_LABELS[room.exam_type]}
+                            </p>
+                            <p className="text-xs text-slate-600">
+                              Vai para {room.name}
+                            </p>
+                          </div>
+                          {checked ? (
+                            <div className="flex max-w-[160px] flex-col gap-1">
+                              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                Quantidade
+                              </span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={99}
+                                value={quantity}
+                                onChange={(event) =>
+                                  updateExamQuantity(
+                                    room.exam_type,
+                                    event.target.value,
+                                  )
+                                }
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     </label>
                   );
@@ -237,7 +315,7 @@ export function ReceptionDashboard({
               >
                 {PRIORITY_OPTIONS.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {PRIORITY_LABELS[option]}
                   </option>
                 ))}
               </select>
@@ -252,7 +330,7 @@ export function ReceptionDashboard({
                 onChange={(event) => setNotes(event.target.value)}
                 rows={4}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                placeholder="Opcional. Ex.: encaixe, retorno, paciente com prioridade clínica."
+                placeholder="Opcional. Ex.: encaixe, retorno, prioridade clínica."
               />
             </label>
 
@@ -278,7 +356,7 @@ export function ReceptionDashboard({
           </form>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <MetricCard
             label="Aguardando"
             value={String(totalWaiting)}
@@ -295,6 +373,11 @@ export function ReceptionDashboard({
             label="Finalizados"
             value={String(totalFinished)}
             helper="Atendimentos com todas as etapas concluídas."
+          />
+          <MetricCard
+            label="Cancelados"
+            value={String(totalCanceled)}
+            helper="Atendimentos encerrados com motivo registrado."
           />
         </div>
       </section>
@@ -342,7 +425,7 @@ export function ReceptionDashboard({
           <div className="mt-6">
             <EmptyState
               title="Nenhum atendimento nesse filtro"
-              description="Assim que a recepção cadastrar um paciente, o atendimento aparece aqui com todas as salas selecionadas."
+              description="Assim que a recepção cadastrar um paciente, o atendimento aparece aqui com os exames direcionados automaticamente."
             />
           </div>
         )}
@@ -352,32 +435,34 @@ export function ReceptionDashboard({
 }
 
 function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems }) {
-  const overallStatus = getAttendanceOverallStatus(attendance.queueItems);
+  const overallStatus = getAttendanceOverallStatus(attendance, attendance.queueItems);
   const completedSteps = attendance.queueItems.filter(
     (item) => item.status === "finalizado",
   ).length;
+  const requestedQuantity = attendance.queueItems.reduce(
+    (total, item) => total + item.requested_quantity,
+    0,
+  );
 
   return (
     <div className="rounded-[24px] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_18px_32px_rgba(15,23,42,0.04)]">
-      <div className="grid gap-4 lg:grid-cols-[1.15fr_0.65fr_0.75fr] lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.7fr_0.8fr] lg:items-start">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-lg font-semibold text-slate-950">
               {attendance.patient_name}
             </p>
             <PriorityBadge priority={attendance.priority} />
+            <AttendanceOverallBadge status={overallStatus} />
           </div>
           <p className="mt-1 text-sm text-slate-600">
             {attendance.notes || "Sem observação"}
           </p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Situação geral
-          </p>
-          <p className="mt-2 text-sm font-semibold text-slate-800">
-            {ATTENDANCE_STATUS_LABELS[overallStatus]}
-          </p>
+          {attendance.cancellation_reason ? (
+            <p className="mt-2 text-sm font-medium text-rose-700">
+              Motivo do cancelamento: {attendance.cancellation_reason}
+            </p>
+          ) : null}
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -387,13 +472,44 @@ function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems })
             {formatClock(attendance.created_at)}
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            {completedSteps} de {attendance.queueItems.length} concluídas
+            {requestedQuantity} exame
+            {requestedQuantity === 1 ? "" : "s"} solicitados
           </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Andamento
+          </p>
+          <p className="mt-1 text-sm text-slate-700">
+            {completedSteps} de {attendance.queueItems.length} etapas concluídas
+          </p>
+          {attendance.canceled_at ? (
+            <p className="mt-2 text-sm text-slate-600">
+              Cancelado em {formatDateTime(attendance.canceled_at)}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="mt-4 border-t border-slate-100 pt-4">
         <AttendanceTimeline items={attendance.queueItems} title="Etapas do atendimento" />
       </div>
     </div>
+  );
+}
+
+function AttendanceOverallBadge({ status }: { status: AttendanceOverallStatus }) {
+  const styles = {
+    aguardando: "border-amber-300 bg-amber-100 text-amber-950",
+    em_andamento: "border-cyan-200 bg-cyan-50 text-cyan-800",
+    finalizado: "border-slate-200 bg-slate-100 text-slate-700",
+    cancelado: "border-rose-200 bg-rose-50 text-rose-700",
+  } as const;
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${styles[status]}`}
+    >
+      {ATTENDANCE_STATUS_LABELS[status]}
+    </span>
   );
 }

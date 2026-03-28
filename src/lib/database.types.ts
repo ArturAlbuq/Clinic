@@ -16,12 +16,17 @@ export type QueueStatus =
   | "aguardando"
   | "chamado"
   | "em_atendimento"
-  | "finalizado";
-export type AttendancePriority = "normal" | "alta" | "urgente";
+  | "finalizado"
+  | "cancelado";
+export type AttendancePriority =
+  | "normal"
+  | "sessenta_mais_outras"
+  | "oitenta_mais";
 export type AttendanceOverallStatus =
   | "aguardando"
   | "em_andamento"
-  | "finalizado";
+  | "finalizado"
+  | "cancelado";
 
 export interface Database {
   public: {
@@ -97,6 +102,10 @@ export interface Database {
           notes: string | null;
           created_at: string;
           created_by: string;
+          canceled_at: string | null;
+          canceled_by: string | null;
+          cancellation_reason: string | null;
+          cancellation_authorized_by: string | null;
           legacy_single_queue_item_id: string | null;
         };
         Insert: {
@@ -106,6 +115,10 @@ export interface Database {
           notes?: string | null;
           created_at?: string;
           created_by: string;
+          canceled_at?: string | null;
+          canceled_by?: string | null;
+          cancellation_reason?: string | null;
+          cancellation_authorized_by?: string | null;
           legacy_single_queue_item_id?: string | null;
         };
         Update: {
@@ -115,6 +128,10 @@ export interface Database {
           notes?: string | null;
           created_at?: string;
           created_by?: string;
+          canceled_at?: string | null;
+          canceled_by?: string | null;
+          cancellation_reason?: string | null;
+          cancellation_authorized_by?: string | null;
           legacy_single_queue_item_id?: string | null;
         };
         Relationships: [];
@@ -129,10 +146,15 @@ export interface Database {
           notes: string | null;
           status: QueueStatus;
           created_by: string | null;
+          requested_quantity: number;
           updated_by: string | null;
           called_at: string | null;
+          called_by: string | null;
           started_at: string | null;
+          started_by: string | null;
           finished_at: string | null;
+          finished_by: string | null;
+          canceled_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -145,10 +167,15 @@ export interface Database {
           notes?: string | null;
           status?: QueueStatus;
           created_by?: string | null;
+          requested_quantity?: number;
           updated_by?: string | null;
           called_at?: string | null;
+          called_by?: string | null;
           started_at?: string | null;
+          started_by?: string | null;
           finished_at?: string | null;
+          finished_by?: string | null;
+          canceled_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -161,10 +188,15 @@ export interface Database {
           notes?: string | null;
           status?: QueueStatus;
           created_by?: string | null;
+          requested_quantity?: number;
           updated_by?: string | null;
           called_at?: string | null;
+          called_by?: string | null;
           started_at?: string | null;
+          started_by?: string | null;
           finished_at?: string | null;
+          finished_by?: string | null;
+          canceled_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -176,9 +208,18 @@ export interface Database {
       create_attendance_with_queue_items: {
         Args: {
           p_exam_types: ExamType[];
+          p_exam_quantities?: Json;
           p_notes: string | null;
           p_patient_name: string;
           p_priority: AttendancePriority;
+        };
+        Returns: Json;
+      };
+      cancel_attendance: {
+        Args: {
+          p_attendance_id: string;
+          p_authorized_by?: string | null;
+          p_reason: string;
         };
         Returns: Json;
       };

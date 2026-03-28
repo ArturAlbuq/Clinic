@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  clinicLocalDateToUtcDate,
+  getClinicDateParts,
+  parseDateInput as parseClinicDateInput,
+} from "@/lib/date";
+import {
   NEW_ITEM_WINDOW_MINUTES,
   PRIORITY_ORDER,
   ROOM_ORDER,
@@ -24,6 +29,17 @@ export type QueueDateRange = {
   endIso: string;
   startIso: string;
 };
+
+type ClinicRangeStart = {
+  day: number;
+  month: number;
+  year: number;
+};
+
+type QueueResolutionItem = Pick<
+  QueueItemRecord,
+  "called_at" | "created_at" | "finished_at" | "started_at" | "canceled_at"
+>;
 
 export async function fetchAttendances(
   supabase: QueueClient,
@@ -90,6 +106,66 @@ export async function fetchExamRooms(
   return (data ?? []) as Database["public"]["Tables"]["exam_rooms"]["Row"][];
 }
 
+function shiftRangeStart(
+  start: ClinicRangeStart,
+  unit: "day" | "month" | "year",
+  amount: number,
+) {
+  const shifted = new Date(Date.UTC(start.year, start.month - 1, start.day, 12));
+
+  if (unit === "day") {
+    shifted.setUTCDate(shifted.getUTCDate() + amount);
+  }
+
+  if (unit === "month") {
+    shifted.setUTCMonth(shifted.getUTCMonth() + amount);
+  }
+
+  if (unit === "year") {
+    shifted.setUTCFullYear(shifted.getUTCFullYear() + amount);
+  }
+
+  return {
+    day: shifted.getUTCDate(),
+    month: shifted.getUTCMonth() + 1,
+    year: shifted.getUTCFullYear(),
+  } satisfies ClinicRangeStart;
+}
+
+function getRangeStart(period: QueuePeriod, referenceDate: Date) {
+  const parts = getClinicDateParts(referenceDate);
+
+  if (period === "day") {
+    return {
+      day: parts.day,
+      month: parts.month,
+      year: parts.year,
+    } satisfies ClinicRangeStart;
+  }
+
+  if (period === "month") {
+    return {
+      day: 1,
+      month: parts.month,
+      year: parts.year,
+    } satisfies ClinicRangeStart;
+  }
+
+  if (period === "quarter") {
+    return {
+      day: 1,
+      month: Math.floor((parts.month - 1) / 3) * 3 + 1,
+      year: parts.year,
+    } satisfies ClinicRangeStart;
+  }
+
+  return {
+    day: 1,
+    month: 1,
+    year: parts.year,
+  } satisfies ClinicRangeStart;
+}
+
 export function getTodayBounds(referenceDate = new Date()) {
   return getRangeBounds("day", referenceDate);
 }
@@ -98,42 +174,19 @@ export function getRangeBounds(
   period: QueuePeriod,
   referenceDate = new Date(),
 ): QueueDateRange {
-  const start = new Date(referenceDate);
-  start.setHours(0, 0, 0, 0);
-
-  if (period === "month") {
-    start.setDate(1);
-  }
-
-  if (period === "quarter") {
-    start.setMonth(Math.floor(start.getMonth() / 3) * 3, 1);
-  }
-
-  if (period === "year") {
-    start.setMonth(0, 1);
-  }
-
-  const end = new Date(start);
-
-  if (period === "day") {
-    end.setDate(end.getDate() + 1);
-  }
-
-  if (period === "month") {
-    end.setMonth(end.getMonth() + 1);
-  }
-
-  if (period === "quarter") {
-    end.setMonth(end.getMonth() + 3);
-  }
-
-  if (period === "year") {
-    end.setFullYear(end.getFullYear() + 1);
-  }
+  const start = getRangeStart(period, referenceDate);
+  const end =
+    period === "day"
+      ? shiftRangeStart(start, "day", 1)
+      : period === "month"
+        ? shiftRangeStart(start, "month", 1)
+        : period === "quarter"
+          ? shiftRangeStart(start, "month", 3)
+          : shiftRangeStart(start, "year", 1);
 
   return {
-    endIso: end.toISOString(),
-    startIso: start.toISOString(),
+    endIso: clinicLocalDateToUtcDate(end).toISOString(),
+    startIso: clinicLocalDateToUtcDate(start).toISOString(),
   };
 }
 
@@ -151,24 +204,7 @@ export function parseQueuePeriod(value?: string): QueuePeriod {
 }
 
 export function parseDateInput(value?: string) {
-  if (!value) {
-    return new Date();
-  }
-
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-  if (!match) {
-    return new Date();
-  }
-
-  const [, year, month, day] = match;
-  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
-
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date();
-  }
-
-  return parsed;
+  return parseClinicDateInput(value);
 }
 
 export function buildAttendanceMap(attendances: AttendanceRecord[]) {
@@ -208,9 +244,7 @@ export function groupAttendancesWithQueueItems(
   })) satisfies AttendanceWithQueueItems[];
 }
 
-export function sortAttendanceQueueItemsByFlow(
-  queueItems: QueueItemRecord[],
-) {
+export function sortAttendanceQueueItemsByFlow(queueItems: QueueItemRecord[]) {
   return [...queueItems].sort((left, right) => {
     const leftIndex = ROOM_ORDER.indexOf(left.room_slug as RoomSlug);
     const rightIndex = ROOM_ORDER.indexOf(right.room_slug as RoomSlug);
@@ -235,7 +269,11 @@ export function getCurrentAttendanceQueueItem(
     return activeItem;
   }
 
-  return orderedItems.find((item) => item.status !== "finalizado") ?? null;
+  return (
+    orderedItems.find((item) => item.status === "aguardando") ??
+    orderedItems.find((item) => item.status === "cancelado") ??
+    null
+  );
 }
 
 export function getPriorityRank(priority: AttendancePriority) {
@@ -258,13 +296,19 @@ export function sortAttendancesByPriorityAndCreatedAt<
 }
 
 export function sortRoomQueueItems(items: QueueItemWithAttendance[]) {
-  return [...items].sort((left, right) => {
-    if (left.status === "finalizado" && right.status !== "finalizado") {
-      return 1;
-    }
+  const statusRank: Record<QueueStatus, number> = {
+    aguardando: 0,
+    chamado: 1,
+    em_atendimento: 2,
+    finalizado: 3,
+    cancelado: 4,
+  };
 
-    if (left.status !== "finalizado" && right.status === "finalizado") {
-      return -1;
+  return [...items].sort((left, right) => {
+    const statusDiff = statusRank[left.status] - statusRank[right.status];
+
+    if (statusDiff !== 0) {
+      return statusDiff;
     }
 
     const leftPriority = left.attendance?.priority ?? "normal";
@@ -285,6 +329,10 @@ export function sortRoomQueueItems(items: QueueItemWithAttendance[]) {
   });
 }
 
+function getQueueWaitResolvedAt(item: QueueResolutionItem) {
+  return item.called_at ?? item.started_at ?? item.finished_at ?? item.canceled_at;
+}
+
 export function getQueueWaitMinutes(
   item: Pick<QueueItemRecord, "created_at">,
   nowMs = Date.now(),
@@ -294,14 +342,16 @@ export function getQueueWaitMinutes(
 }
 
 export function getQueueStageWaitMinutes(
-  item: Pick<QueueItemRecord, "created_at" | "started_at">,
+  item: Pick<QueueItemRecord, "created_at" | "started_at" | "canceled_at">,
   nowMs = Date.now(),
 ) {
-  if (item.started_at) {
+  const resolvedAt = item.started_at ?? item.canceled_at;
+
+  if (resolvedAt) {
     return Math.max(
       0,
       Math.round(
-        (new Date(item.started_at).getTime() - new Date(item.created_at).getTime()) /
+        (new Date(resolvedAt).getTime() - new Date(item.created_at).getTime()) /
           60000,
       ),
     );
@@ -311,16 +361,15 @@ export function getQueueStageWaitMinutes(
 }
 
 export function getQueueStageExecutionMinutes(
-  item: Pick<QueueItemRecord, "finished_at" | "started_at">,
+  item: Pick<QueueItemRecord, "finished_at" | "started_at" | "canceled_at">,
   nowMs = Date.now(),
 ) {
   if (!item.started_at) {
     return null;
   }
 
-  const endMs = item.finished_at
-    ? new Date(item.finished_at).getTime()
-    : nowMs;
+  const resolvedAt = item.finished_at ?? item.canceled_at;
+  const endMs = resolvedAt ? new Date(resolvedAt).getTime() : nowMs;
 
   return Math.max(
     0,
@@ -329,12 +378,11 @@ export function getQueueStageExecutionMinutes(
 }
 
 export function getQueueStageTotalMinutes(
-  item: Pick<QueueItemRecord, "created_at" | "finished_at">,
+  item: Pick<QueueItemRecord, "created_at" | "finished_at" | "canceled_at">,
   nowMs = Date.now(),
 ) {
-  const endMs = item.finished_at
-    ? new Date(item.finished_at).getTime()
-    : nowMs;
+  const resolvedAt = item.finished_at ?? item.canceled_at;
+  const endMs = resolvedAt ? new Date(resolvedAt).getTime() : nowMs;
 
   return Math.max(
     0,
@@ -343,17 +391,30 @@ export function getQueueStageTotalMinutes(
 }
 
 export function getAttendanceTotalMinutes(
-  attendance: Pick<AttendanceRecord, "created_at">,
-  queueItems: Array<Pick<QueueItemRecord, "finished_at">>,
+  attendance: Pick<AttendanceRecord, "created_at" | "canceled_at">,
+  queueItems: Array<Pick<QueueItemRecord, "finished_at" | "canceled_at">>,
   nowMs = Date.now(),
 ) {
-  const allFinished =
-    queueItems.length > 0 && queueItems.every((item) => item.finished_at);
+  if (attendance.canceled_at) {
+    return Math.max(
+      0,
+      Math.round(
+        (new Date(attendance.canceled_at).getTime() -
+          new Date(attendance.created_at).getTime()) /
+          60000,
+      ),
+    );
+  }
 
-  const endMs = allFinished
-    ? Math.max(
-        ...queueItems.map((item) => new Date(item.finished_at as string).getTime()),
-      )
+  const resolvedQueueItems = queueItems
+    .map((item) => item.finished_at ?? item.canceled_at)
+    .filter((value): value is string => Boolean(value));
+
+  const allResolved =
+    queueItems.length > 0 && resolvedQueueItems.length === queueItems.length;
+
+  const endMs = allResolved
+    ? Math.max(...resolvedQueueItems.map((value) => new Date(value).getTime()))
     : nowMs;
 
   return Math.max(
@@ -401,7 +462,7 @@ export function getNextStatusLabel(status: QueueStatus) {
 export function getAverageWaitMinutes(items: QueueItemRecord[]) {
   const waits = items
     .map((item) => {
-      const resolvedAt = item.called_at ?? item.started_at ?? item.finished_at;
+      const resolvedAt = getQueueWaitResolvedAt(item);
 
       if (!resolvedAt) {
         return null;
@@ -425,8 +486,13 @@ export function getAverageWaitMinutes(items: QueueItemRecord[]) {
 }
 
 export function getAttendanceOverallStatus(
+  attendance: Pick<AttendanceRecord, "canceled_at"> | null | undefined,
   queueItems: QueueItemRecord[],
 ): AttendanceOverallStatus {
+  if (attendance?.canceled_at) {
+    return "cancelado";
+  }
+
   if (!queueItems.length) {
     return "aguardando";
   }

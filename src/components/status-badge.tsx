@@ -4,13 +4,15 @@ import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<QueueStatus, string> = {
   aguardando:
-    "border-amber-200 bg-amber-50 text-amber-800 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.04)]",
+    "border-amber-300 bg-amber-100 text-amber-950 shadow-[0_10px_24px_rgba(245,158,11,0.14)]",
   chamado:
     "border-sky-200 bg-sky-50 text-sky-800 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.04)]",
   em_atendimento:
     "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.04)]",
   finalizado:
     "border-slate-200 bg-slate-100 text-slate-700 shadow-[inset_0_0_0_1px_rgba(100,116,139,0.04)]",
+  cancelado:
+    "border-rose-200 bg-rose-50 text-rose-700 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.04)]",
 };
 
 export function StatusBadge({ status }: { status: QueueStatus }) {

@@ -26,20 +26,20 @@ export const ROOM_ORDER: RoomSlug[] = [
 export const ROOM_CONFIG = {
   fotografia_escaneamento: {
     slug: "fotografia-escaneamento",
-    roomName: "Fotografia / escaneamento intra-oral",
-    shortName: "Foto / scan",
+    roomName: "Fotos/escaneamento",
+    shortName: "Foto/scan",
     route: "/atendimento/fotografia-escaneamento",
   },
   periapical: {
     slug: "periapical",
-    roomName: "Periapical",
-    shortName: "Periapical",
+    roomName: "Radiografia intra-oral",
+    shortName: "Intra-oral",
     route: "/atendimento/periapical",
   },
   panoramico: {
     slug: "panoramico",
-    roomName: "Panorâmico",
-    shortName: "Panorâmico",
+    roomName: "Radiografia extra-oral",
+    shortName: "Extra-oral",
     route: "/atendimento/panoramico",
   },
   tomografia: {
@@ -69,20 +69,20 @@ export const ROOM_BY_SLUG: Record<
 > = {
   "fotografia-escaneamento": {
     examType: "fotografia_escaneamento",
-    roomName: "Fotografia / escaneamento intra-oral",
-    shortName: "Foto / scan",
+    roomName: "Fotos/escaneamento",
+    shortName: "Foto/scan",
     route: "/atendimento/fotografia-escaneamento",
   },
   periapical: {
     examType: "periapical",
-    roomName: "Periapical",
-    shortName: "Periapical",
+    roomName: "Radiografia intra-oral",
+    shortName: "Intra-oral",
     route: "/atendimento/periapical",
   },
   panoramico: {
     examType: "panoramico",
-    roomName: "Panorâmico",
-    shortName: "Panorâmico",
+    roomName: "Radiografia extra-oral",
+    shortName: "Extra-oral",
     route: "/atendimento/panoramico",
   },
   tomografia: {
@@ -94,9 +94,9 @@ export const ROOM_BY_SLUG: Record<
 };
 
 export const EXAM_LABELS: Record<ExamType, string> = {
-  fotografia_escaneamento: "Fotografia / escaneamento intra-oral",
-  periapical: "Periapical",
-  panoramico: "Panorâmico",
+  fotografia_escaneamento: "Fotografia e escaneamento",
+  periapical: "Periapical e interproximal",
+  panoramico: "Panorâmica e telerradiografia",
   tomografia: "Tomografia",
 };
 
@@ -105,6 +105,7 @@ export const STATUS_LABELS: Record<QueueStatus, string> = {
   chamado: "Chamado",
   em_atendimento: "Em atendimento",
   finalizado: "Finalizado",
+  cancelado: "Cancelado",
 };
 
 export const ROOM_STATUS_LABELS: Record<QueueStatus, string> = {
@@ -112,18 +113,20 @@ export const ROOM_STATUS_LABELS: Record<QueueStatus, string> = {
   chamado: "Paciente chamado",
   em_atendimento: "Em exame",
   finalizado: "Etapa concluída",
+  cancelado: "Atendimento cancelado",
 };
 
 export const PRIORITY_LABELS: Record<AttendancePriority, string> = {
   normal: "Normal",
-  alta: "Alta",
-  urgente: "Urgente",
+  sessenta_mais_outras: "60+ e outras",
+  oitenta_mais: "80+",
 };
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceOverallStatus, string> = {
   aguardando: "Aguardando",
   em_andamento: "Em andamento",
   finalizado: "Finalizado",
+  cancelado: "Cancelado",
 };
 
 export const ROLE_LABELS: Record<AppRole, string> = {
@@ -162,17 +165,18 @@ export const STATUS_ORDER: QueueStatus[] = [
   "chamado",
   "em_atendimento",
   "finalizado",
+  "cancelado",
 ];
 
 export const PRIORITY_ORDER: AttendancePriority[] = [
-  "urgente",
-  "alta",
+  "oitenta_mais",
+  "sessenta_mais_outras",
   "normal",
 ];
 
 export const RECEPTION_STATUS_FILTERS: Array<
   AttendanceOverallStatus | "todos"
-> = ["todos", "aguardando", "em_andamento", "finalizado"];
+> = ["todos", "aguardando", "em_andamento", "finalizado", "cancelado"];
 
 export function isRoomSlug(value: string): value is RoomSlug {
   return ROOM_ORDER.includes(value as RoomSlug);

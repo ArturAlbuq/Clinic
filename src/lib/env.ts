@@ -22,8 +22,22 @@ export function getSupabaseServiceRoleKey() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
-    throw new Error("A variável SUPABASE_SERVICE_ROLE_KEY é obrigatória para seed.");
+    throw new Error(
+      "A variável SUPABASE_SERVICE_ROLE_KEY é obrigatória para seed.",
+    );
   }
 
   return serviceRoleKey;
+}
+
+export function getManagerApprovalPassword() {
+  const password = process.env.MANAGER_APPROVAL_PASSWORD;
+
+  if (!password) {
+    throw new Error(
+      "A variável MANAGER_APPROVAL_PASSWORD é obrigatória para cancelar atendimentos.",
+    );
+  }
+
+  return password;
 }

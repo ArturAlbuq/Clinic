@@ -8,6 +8,7 @@ import type {
 } from "@/lib/database.types";
 
 type CreateAttendanceBody = {
+  examQuantities?: Partial<Record<ExamType, number>>;
   notes?: string;
   patientName?: string;
   priority?: AttendancePriority;
@@ -19,13 +20,37 @@ type CreateAttendancePayload = {
   queueItems: QueueItemRecord[];
 };
 
-const ALLOWED_PRIORITIES = new Set<AttendancePriority>(["normal", "alta", "urgente"]);
+const ALLOWED_PRIORITIES = new Set<AttendancePriority>([
+  "normal",
+  "sessenta_mais_outras",
+  "oitenta_mais",
+]);
+
 const ALLOWED_EXAMS = new Set<ExamType>([
   "fotografia_escaneamento",
   "periapical",
   "panoramico",
   "tomografia",
 ]);
+
+function normalizeExamQuantities(
+  selectedExams: ExamType[],
+  input: Partial<Record<ExamType, number>> | undefined,
+) {
+  const normalized: Partial<Record<ExamType, number>> = {};
+
+  for (const examType of selectedExams) {
+    const rawValue = input?.[examType];
+    const quantity =
+      typeof rawValue === "number" && Number.isInteger(rawValue) && rawValue > 0
+        ? rawValue
+        : 1;
+
+    normalized[examType] = quantity;
+  }
+
+  return normalized;
+}
 
 export async function POST(request: Request) {
   const requestOrigin = request.headers.get("origin");
@@ -57,12 +82,15 @@ export async function POST(request: Request) {
     selectedExams.some((examType) => !ALLOWED_EXAMS.has(examType))
   ) {
     return NextResponse.json(
-      { error: "Selecione ao menos uma sala válida." },
+      { error: "Selecione ao menos um exame válido." },
       { status: 400 },
     );
   }
 
+  const examQuantities = normalizeExamQuantities(selectedExams, body.examQuantities);
+
   const { data, error } = await supabase.rpc("create_attendance_with_queue_items", {
+    p_exam_quantities: examQuantities,
     p_exam_types: selectedExams,
     p_notes: notes || null,
     p_patient_name: patientName,

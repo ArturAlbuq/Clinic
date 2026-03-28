@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { formatDateInputValue } from "@/lib/date";
+import type { ProfileRecord } from "@/lib/database.types";
 import {
   fetchAttendances,
   fetchExamRooms,
@@ -25,7 +26,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const period = parseQueuePeriod(params.period);
   const selectedDate = parseDateInput(params.date);
   const range = getRangeBounds(period, selectedDate);
-  const [attendances, queueItems, rooms] = await Promise.all([
+  const [{ data: profiles }, attendances, queueItems, rooms] = await Promise.all([
+    supabase.from("profiles").select("*").order("full_name", { ascending: true }),
     fetchAttendances(supabase, { range }),
     fetchQueueItems(supabase, { range }),
     fetchExamRooms(supabase),
@@ -37,6 +39,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       initialItems={queueItems}
       initialPeriod={period}
       initialSelectedDate={formatDateInputValue(selectedDate)}
+      profiles={(profiles ?? []) as ProfileRecord[]}
       range={range}
       rooms={rooms}
     />

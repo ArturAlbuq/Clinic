@@ -27,7 +27,8 @@ begin
     'aguardando',
     'chamado',
     'em_atendimento',
-    'finalizado'
+    'finalizado',
+    'cancelado'
   );
 exception
   when duplicate_object then null;
@@ -36,7 +37,11 @@ $$;
 
 do $$
 begin
-  create type public.attendance_priority as enum ('normal', 'alta', 'urgente');
+  create type public.attendance_priority as enum (
+    'normal',
+    'sessenta_mais_outras',
+    'oitenta_mais'
+  );
 exception
   when duplicate_object then null;
 end
@@ -71,6 +76,10 @@ create table if not exists public.attendances (
   notes text,
   created_at timestamptz not null default timezone('utc', now()),
   created_by uuid not null references public.profiles (id),
+  canceled_at timestamptz,
+  canceled_by uuid references public.profiles (id),
+  cancellation_reason text,
+  cancellation_authorized_by uuid references public.profiles (id),
   legacy_single_queue_item_id uuid unique
 );
 
@@ -82,9 +91,14 @@ create table if not exists public.queue_items (
   notes text,
   status public.queue_status not null default 'aguardando',
   created_by uuid references public.profiles (id),
+  requested_quantity integer not null default 1 check (requested_quantity >= 1),
   called_at timestamptz,
+  called_by uuid references public.profiles (id),
   started_at timestamptz,
+  started_by uuid references public.profiles (id),
   finished_at timestamptz,
+  finished_by uuid references public.profiles (id),
+  canceled_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -118,11 +132,11 @@ values
   (
     'fotografia-escaneamento',
     'fotografia_escaneamento',
-    'Fotografia / escaneamento intra-oral',
+    'Fotos/escaneamento',
     1
   ),
-  ('periapical', 'periapical', 'Periapical', 2),
-  ('panoramico', 'panoramico', 'Panorâmico', 3),
+  ('periapical', 'periapical', 'Radiografia intra-oral', 2),
+  ('panoramico', 'panoramico', 'Radiografia extra-oral', 3),
   ('tomografia', 'tomografia', 'Tomografia', 4)
 on conflict (slug) do update
 set
@@ -168,13 +182,19 @@ select
   a.notes,
   a.created_at,
   a.created_by,
+  a.canceled_at,
+  a.canceled_by,
+  a.cancellation_reason,
+  a.cancellation_authorized_by,
   count(q.id)::integer as total_steps,
   count(*) filter (where q.status = 'finalizado')::integer as finished_steps,
   count(*) filter (where q.status = 'aguardando')::integer as waiting_steps,
   count(*) filter (
     where q.status = 'chamado' or q.status = 'em_atendimento'
   )::integer as active_steps,
+  count(*) filter (where q.status = 'cancelado')::integer as canceled_steps,
   case
+    when a.canceled_at is not null then 'cancelado'
     when count(q.id) = 0 then 'aguardando'
     when count(*) filter (where q.status = 'finalizado') = count(q.id) then 'finalizado'
     when count(*) filter (where q.status = 'aguardando') = count(q.id) then 'aguardando'
@@ -287,6 +307,10 @@ begin
     return new;
   end if;
 
+  if new.status = 'cancelado' and old.status in ('aguardando', 'chamado', 'em_atendimento') then
+    return new;
+  end if;
+
   if old.status = 'aguardando' and new.status = 'chamado' then
     return new;
   end if;
@@ -315,14 +339,27 @@ begin
 
   if new.status = 'chamado' and old.called_at is null then
     new.called_at = timezone('utc', now());
+    if auth.uid() is not null and new.called_by is null then
+      new.called_by = auth.uid();
+    end if;
   end if;
 
   if new.status = 'em_atendimento' and old.started_at is null then
     new.started_at = timezone('utc', now());
+    if auth.uid() is not null and new.started_by is null then
+      new.started_by = auth.uid();
+    end if;
   end if;
 
   if new.status = 'finalizado' and old.finished_at is null then
     new.finished_at = timezone('utc', now());
+    if auth.uid() is not null and new.finished_by is null then
+      new.finished_by = auth.uid();
+    end if;
+  end if;
+
+  if new.status = 'cancelado' and old.canceled_at is null then
+    new.canceled_at = timezone('utc', now());
   end if;
 
   return new;
@@ -387,7 +424,8 @@ create or replace function public.create_attendance_with_queue_items(
   p_patient_name text,
   p_priority public.attendance_priority,
   p_notes text,
-  p_exam_types public.exam_type[]
+  p_exam_types public.exam_type[],
+  p_exam_quantities jsonb default '{}'::jsonb
 )
 returns jsonb
 language plpgsql
@@ -428,12 +466,20 @@ begin
   returning *
   into created_attendance;
 
-  with inserted_items as (
-    insert into public.queue_items (attendance_id, exam_type)
-    select created_attendance.id, distinct_exam.exam_type
-    from (
-      select distinct unnest(p_exam_types) as exam_type
-    ) as distinct_exam
+  with distinct_exam as (
+    select distinct unnest(p_exam_types) as exam_type
+  ),
+  inserted_items as (
+    insert into public.queue_items (attendance_id, exam_type, requested_quantity)
+    select
+      created_attendance.id,
+      distinct_exam.exam_type,
+      case
+        when jsonb_typeof(p_exam_quantities -> distinct_exam.exam_type::text) = 'number'
+          then greatest(1, (p_exam_quantities ->> distinct_exam.exam_type::text)::integer)
+        else 1
+      end
+    from distinct_exam
     returning *
   )
   select coalesce(jsonb_agg(to_jsonb(inserted_items)), '[]'::jsonb)
@@ -443,6 +489,86 @@ begin
   return jsonb_build_object(
     'attendance', to_jsonb(created_attendance),
     'queueItems', created_queue_items
+  );
+end;
+$$;
+
+create or replace function public.cancel_attendance(
+  p_attendance_id uuid,
+  p_reason text,
+  p_authorized_by uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_attendance public.attendances%rowtype;
+  updated_queue_items jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'autenticacao obrigatoria';
+  end if;
+
+  if public.current_app_role() not in ('atendimento', 'admin') then
+    raise exception 'sem permissao para cancelar atendimento';
+  end if;
+
+  if char_length(trim(coalesce(p_reason, ''))) < 3 then
+    raise exception 'motivo de cancelamento obrigatorio';
+  end if;
+
+  select *
+  into target_attendance
+  from public.attendances
+  where id = p_attendance_id
+    and public.user_can_access_attendance(id)
+  for update;
+
+  if target_attendance.id is null then
+    raise exception 'atendimento nao encontrado';
+  end if;
+
+  if target_attendance.canceled_at is not null then
+    raise exception 'atendimento ja cancelado';
+  end if;
+
+  if not exists (
+    select 1
+    from public.queue_items q
+    where q.attendance_id = target_attendance.id
+      and q.status not in ('finalizado', 'cancelado')
+  ) then
+    raise exception 'atendimento sem etapas abertas para cancelamento';
+  end if;
+
+  update public.attendances
+  set
+    canceled_at = timezone('utc', now()),
+    canceled_by = auth.uid(),
+    cancellation_reason = nullif(trim(coalesce(p_reason, '')), ''),
+    cancellation_authorized_by = p_authorized_by
+  where id = target_attendance.id
+  returning *
+  into target_attendance;
+
+  with updated_items as (
+    update public.queue_items
+    set
+      status = 'cancelado',
+      updated_by = auth.uid()
+    where attendance_id = target_attendance.id
+      and status not in ('finalizado', 'cancelado')
+    returning *
+  )
+  select coalesce(jsonb_agg(to_jsonb(updated_items)), '[]'::jsonb)
+  into updated_queue_items
+  from updated_items;
+
+  return jsonb_build_object(
+    'attendance', to_jsonb(target_attendance),
+    'queueItems', updated_queue_items
   );
 end;
 $$;

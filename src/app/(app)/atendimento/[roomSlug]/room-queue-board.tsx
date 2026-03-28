@@ -6,13 +6,13 @@ import { EmptyState } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
 import { RealtimeStatusBadge } from "@/components/realtime-status";
 import { StatusBadge } from "@/components/status-badge";
-import { ROOM_STATUS_LABELS } from "@/lib/constants";
+import { EXAM_LABELS, ROOM_STATUS_LABELS } from "@/lib/constants";
 import type {
   AttendanceRecord,
   QueueItemRecord,
   QueueItemWithAttendance,
 } from "@/lib/database.types";
-import { formatClock, formatMinuteLabel } from "@/lib/date";
+import { formatClock, formatDateTime, formatMinuteLabel } from "@/lib/date";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import type { RoomSlug } from "@/lib/constants";
 import {
@@ -45,6 +45,7 @@ export function RoomQueueBoard({
     queueItems,
     realtimeError,
     realtimeStatus,
+    setAttendances,
     setQueueItems,
   } = useRealtimeClinicData({
     initialAttendances,
@@ -54,6 +55,11 @@ export function RoomQueueBoard({
   const [nowMs, setNowMs] = useState<number | null>(null);
   const [actionError, setActionError] = useState("");
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
+  const [cancelAttendanceId, setCancelAttendanceId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelPassword, setCancelPassword] = useState("");
+  const [cancelError, setCancelError] = useState("");
+  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setNowMs(Date.now()));
@@ -76,6 +82,9 @@ export function RoomQueueBoard({
       ),
     [queueItemsWithAttendance, roomSlug],
   );
+
+  const visibleItems = orderedItems.filter((item) => item.status !== "cancelado");
+  const canceledItems = orderedItems.filter((item) => item.status === "cancelado");
 
   async function advanceStatus(item: QueueItemWithAttendance) {
     const nextStatus = getNextStatus(item.status);
@@ -117,10 +126,76 @@ export function RoomQueueBoard({
     setPendingItemId(null);
   }
 
-  const waitingCount = orderedItems.filter(
+  async function submitCancellation(item: QueueItemWithAttendance) {
+    setCancelError("");
+
+    const reason = cancelReason.trim();
+    const managerPassword = cancelPassword.trim();
+
+    if (reason.length < 3) {
+      setCancelError("Informe o motivo do cancelamento.");
+      return;
+    }
+
+    if (!managerPassword) {
+      setCancelError("Informe a senha da gerência.");
+      return;
+    }
+
+    setPendingCancelId(item.attendance_id);
+
+    const response = await fetch(
+      `/api/clinic/attendances/${item.attendance_id}/cancel`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          managerPassword,
+          reason,
+        }),
+      },
+    );
+
+    const payload = (await response.json()) as {
+      attendance?: AttendanceRecord;
+      error?: string;
+      queueItems?: QueueItemRecord[];
+    };
+
+    if (!response.ok || !payload.attendance) {
+      setCancelError(payload.error || "Não foi possível cancelar o atendimento.");
+      setPendingCancelId(null);
+      return;
+    }
+
+    const updatedItems = payload.queueItems ?? [];
+
+    setAttendances((currentAttendances) =>
+      currentAttendances.map((attendance) =>
+        attendance.id === item.attendance_id
+          ? (payload.attendance as AttendanceRecord)
+          : attendance,
+      ),
+    );
+    setQueueItems((currentItems) =>
+      currentItems.map((currentItem) => {
+        const updatedItem = updatedItems.find((entry) => entry.id === currentItem.id);
+        return updatedItem ?? currentItem;
+      }),
+    );
+    setCancelAttendanceId(null);
+    setCancelReason("");
+    setCancelPassword("");
+    setPendingCancelId(null);
+  }
+
+  const waitingCount = visibleItems.filter(
     (item) => item.status === "aguardando",
   ).length;
-  const activeCount = orderedItems.filter(
+  const activeCount = visibleItems.filter(
     (item) => item.status === "chamado" || item.status === "em_atendimento",
   ).length;
 
@@ -142,13 +217,14 @@ export function RoomQueueBoard({
               {room.roomName}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Chame o próximo paciente, inicie o exame e conclua a etapa sem sair da fila.
+              Chame o próximo paciente, inicie o exame, conclua a etapa e, se
+              necessário, cancele o requerimento inteiro com autorização da gerência.
             </p>
           </div>
 
           <div className="space-y-3">
             <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-[24px] border border-amber-200/80 bg-amber-50 px-5 py-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
                   Na fila
@@ -165,6 +241,14 @@ export function RoomQueueBoard({
                   {activeCount}
                 </p>
               </div>
+              <div className="rounded-[24px] border border-rose-200/80 bg-rose-50 px-5 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
+                  Cancelados
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-rose-900">
+                  {canceledItems.length}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -176,9 +260,9 @@ export function RoomQueueBoard({
         </div>
       ) : null}
 
-      {orderedItems.length ? (
+      {visibleItems.length ? (
         <section className="grid gap-4 xl:grid-cols-2">
-          {orderedItems.map((item) => {
+          {visibleItems.map((item) => {
             const nextActionLabel = getNextStatusLabel(item.status);
             const referenceNow =
               nowMs ?? new Date(item.attendance?.created_at ?? item.created_at).getTime();
@@ -187,6 +271,7 @@ export function RoomQueueBoard({
               referenceNow,
             );
             const isNew = isQueueItemNew(item, referenceNow);
+            const cancellationOpen = cancelAttendanceId === item.attendance_id;
 
             return (
               <article
@@ -220,31 +305,32 @@ export function RoomQueueBoard({
                   <StatusBadge status={item.status} />
                 </div>
 
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Entrada
-                    </p>
-                    <p className="mt-2 font-mono text-lg text-slate-900">
-                      {formatClock(item.attendance?.created_at ?? item.created_at)}
-                    </p>
-                  </div>
-                  <div className="rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Espera
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">
-                      {formatMinuteLabel(waitMinutes)}
-                    </p>
-                  </div>
-                  <div className="rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Situação
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">
-                      {ROOM_STATUS_LABELS[item.status]}
-                    </p>
-                  </div>
+                <div className="mt-6 grid gap-3 sm:grid-cols-4">
+                  <InfoCard
+                    label="Entrada"
+                    value={formatClock(item.attendance?.created_at ?? item.created_at)}
+                  />
+                  <InfoCard
+                    label="Espera"
+                    value={formatMinuteLabel(waitMinutes)}
+                  />
+                  <InfoCard
+                    label="Exame"
+                    value={EXAM_LABELS[item.exam_type]}
+                  />
+                  <InfoCard
+                    label="Quantidade"
+                    value={String(item.requested_quantity)}
+                  />
+                </div>
+
+                <div className="mt-6 rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Situação
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">
+                    {ROOM_STATUS_LABELS[item.status]}
+                  </p>
                 </div>
 
                 <div className="mt-6 flex flex-wrap gap-3">
@@ -262,7 +348,93 @@ export function RoomQueueBoard({
                       Etapa concluída
                     </div>
                   )}
+
+                  {item.status !== "finalizado" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCancelError("");
+                        setCancelAttendanceId((current) =>
+                          current === item.attendance_id ? null : item.attendance_id,
+                        );
+                      }}
+                      className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                    >
+                      Cancelar atendimento
+                    </button>
+                  ) : null}
                 </div>
+
+                {cancellationOpen ? (
+                  <div className="mt-6 rounded-[24px] border border-rose-200 bg-rose-50/80 px-5 py-5">
+                    <p className="text-sm font-semibold text-rose-900">
+                      Cancelar o requerimento inteiro do paciente
+                    </p>
+                    <p className="mt-2 text-sm text-rose-700">
+                      O cancelamento tira todas as etapas abertas do fluxo e exige
+                      senha da gerência.
+                    </p>
+
+                    <div className="mt-4 grid gap-4">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-slate-700">
+                          Motivo do cancelamento
+                        </span>
+                        <textarea
+                          rows={3}
+                          value={cancelReason}
+                          onChange={(event) => setCancelReason(event.target.value)}
+                          className="w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                          placeholder="Ex.: pedido cancelado, documentação incorreta, paciente desistiu."
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-slate-700">
+                          Senha da gerência
+                        </span>
+                        <input
+                          type="password"
+                          value={cancelPassword}
+                          onChange={(event) => setCancelPassword(event.target.value)}
+                          className="w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                          placeholder="Senha de autorização"
+                        />
+                      </label>
+
+                      {cancelError ? (
+                        <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm text-rose-700">
+                          {cancelError}
+                        </div>
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => submitCancellation(item)}
+                          disabled={pendingCancelId === item.attendance_id}
+                          className="rounded-2xl bg-rose-700 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {pendingCancelId === item.attendance_id
+                            ? "Cancelando..."
+                            : "Confirmar cancelamento"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancelAttendanceId(null);
+                            setCancelError("");
+                            setCancelPassword("");
+                            setCancelReason("");
+                          }}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </article>
             );
           })}
@@ -273,6 +445,65 @@ export function RoomQueueBoard({
           description="Assim que a recepção enviar um novo atendimento para esta fila, ele aparece aqui automaticamente."
         />
       )}
+
+      {canceledItems.length ? (
+        <section className="app-panel rounded-[30px] px-6 py-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Histórico
+              </p>
+              <h3 className="mt-2 text-2xl font-semibold text-slate-950">
+                Cancelamentos desta sala
+              </h3>
+            </div>
+            <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-700">
+              {canceledItems.length} cancelado{canceledItems.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {canceledItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-[24px] border border-rose-200 bg-rose-50/60 px-5 py-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-lg font-semibold text-slate-950">
+                    {item.attendance?.patient_name ?? item.patient_name}
+                  </p>
+                  {item.attendance ? (
+                    <PriorityBadge priority={item.attendance.priority} />
+                  ) : null}
+                  <StatusBadge status={item.status} />
+                </div>
+                <p className="mt-2 text-sm text-slate-700">
+                  {item.attendance?.cancellation_reason || "Sem motivo informado."}
+                </p>
+                <p className="mt-2 text-sm text-slate-600">
+                  Cancelado em{" "}
+                  {item.attendance?.canceled_at
+                    ? formatDateTime(item.attendance.canceled_at)
+                    : item.canceled_at
+                      ? formatDateTime(item.canceled_at)
+                      : "--"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function InfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
