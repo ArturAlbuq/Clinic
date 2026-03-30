@@ -11,7 +11,7 @@ export function getSupabasePublicEnv() {
 
   if (!url || !anonKey) {
     throw new Error(
-      "Variáveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY são obrigatórias.",
+      "Variaveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY sao obrigatorias.",
     );
   }
 
@@ -23,21 +23,9 @@ export function getSupabaseServiceRoleKey() {
 
   if (!serviceRoleKey) {
     throw new Error(
-      "A variável SUPABASE_SERVICE_ROLE_KEY é obrigatória para seed.",
+      "A variavel SUPABASE_SERVICE_ROLE_KEY e obrigatoria para seed.",
     );
   }
 
   return serviceRoleKey;
-}
-
-export function getManagerApprovalPassword() {
-  const password = process.env.MANAGER_APPROVAL_PASSWORD;
-
-  if (!password) {
-    throw new Error(
-      "A variável MANAGER_APPROVAL_PASSWORD é obrigatória para cancelar atendimentos.",
-    );
-  }
-
-  return password;
 }

@@ -60,25 +60,21 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 
 const rooms = [
   {
-    exam_type: "fotografia_escaneamento",
-    name: "Fotos/escaneamento",
+    name: "Fotos e escaneamento",
     slug: "fotografia-escaneamento",
     sort_order: 1,
   },
   {
-    exam_type: "periapical",
     name: "Radiografia intra-oral",
     slug: "periapical",
     sort_order: 2,
   },
   {
-    exam_type: "panoramico",
     name: "Radiografia extra-oral",
     slug: "panoramico",
     sort_order: 3,
   },
   {
-    exam_type: "tomografia",
     name: "Tomografia",
     slug: "tomografia",
     sort_order: 4,

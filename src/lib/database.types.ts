@@ -8,9 +8,12 @@ export type Json =
 
 export type AppRole = "recepcao" | "atendimento" | "admin";
 export type ExamType =
-  | "fotografia_escaneamento"
+  | "fotografia"
+  | "escaneamento_intra_oral"
   | "periapical"
-  | "panoramico"
+  | "interproximal"
+  | "panoramica"
+  | "telerradiografia"
   | "tomografia";
 export type QueueStatus =
   | "aguardando"
@@ -55,21 +58,18 @@ export interface Database {
       exam_rooms: {
         Row: {
           slug: string;
-          exam_type: ExamType;
           name: string;
           sort_order: number;
           created_at: string;
         };
         Insert: {
           slug: string;
-          exam_type: ExamType;
           name: string;
           sort_order: number;
           created_at?: string;
         };
         Update: {
           slug?: string;
-          exam_type?: ExamType;
           name?: string;
           sort_order?: number;
           created_at?: string;
@@ -91,6 +91,45 @@ export interface Database {
           profile_id?: string;
           room_slug?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      manager_approval_attempts: {
+        Row: {
+          id: string;
+          actor_user_id: string;
+          attendance_id: string;
+          manager_email: string;
+          authorized_manager_id: string | null;
+          success: boolean;
+          failure_reason: string | null;
+          ip_address: string | null;
+          user_agent: string | null;
+          attempted_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_user_id: string;
+          attendance_id: string;
+          manager_email: string;
+          authorized_manager_id?: string | null;
+          success: boolean;
+          failure_reason?: string | null;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          attempted_at?: string;
+        };
+        Update: {
+          id?: string;
+          actor_user_id?: string;
+          attendance_id?: string;
+          manager_email?: string;
+          authorized_manager_id?: string | null;
+          success?: boolean;
+          failure_reason?: string | null;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          attempted_at?: string;
         };
         Relationships: [];
       };

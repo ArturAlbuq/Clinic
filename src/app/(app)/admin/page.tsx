@@ -9,7 +9,7 @@ import {
   parseDateInput,
   parseQueuePeriod,
 } from "@/lib/queue";
-import { AdminDashboard } from "./admin-dashboard";
+import { AdminDashboard } from "@/components/admin-dashboard";
 
 export const dynamic = "force-dynamic";
 

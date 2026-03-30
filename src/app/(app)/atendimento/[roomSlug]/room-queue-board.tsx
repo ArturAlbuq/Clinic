@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AttentionAlertControl } from "@/components/attention-alert-control";
 import { EmptyState } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
+import { PwaInstallControl } from "@/components/pwa-install-control";
 import { RealtimeStatusBadge } from "@/components/realtime-status";
 import { StatusBadge } from "@/components/status-badge";
+import { useAttentionAlert } from "@/hooks/use-attention-alert";
 import { EXAM_LABELS, ROOM_STATUS_LABELS } from "@/lib/constants";
 import type {
   AttendanceRecord,
@@ -13,8 +16,8 @@ import type {
   QueueItemWithAttendance,
 } from "@/lib/database.types";
 import { formatClock, formatDateTime, formatMinuteLabel } from "@/lib/date";
-import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import type { RoomSlug } from "@/lib/constants";
+import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import {
   combineQueueItemsWithAttendances,
   getNextStatus,
@@ -52,7 +55,7 @@ export function RoomQueueBoard({
     initialQueueItems: initialItems,
     roomSlug,
   });
-  const [nowMs, setNowMs] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [actionError, setActionError] = useState("");
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
   const [cancelAttendanceId, setCancelAttendanceId] = useState<string | null>(null);
@@ -117,7 +120,7 @@ export function RoomQueueBoard({
     };
 
     if (!response.ok || !payload.queueItem) {
-      setActionError(payload.error || "Não foi possível avançar a etapa.");
+      setActionError(payload.error || "Nao foi possivel avancar a etapa.");
       setPendingItemId(null);
       return;
     }
@@ -142,7 +145,7 @@ export function RoomQueueBoard({
     }
 
     if (!managerPassword) {
-      setCancelError("Informe a senha da gerência.");
+      setCancelError("Informe a senha da gerencia.");
       return;
     }
 
@@ -170,7 +173,7 @@ export function RoomQueueBoard({
     };
 
     if (!response.ok || !payload.attendance) {
-      setCancelError(payload.error || "Não foi possível cancelar o atendimento.");
+      setCancelError(payload.error || "Nao foi possivel cancelar o atendimento.");
       setPendingCancelId(null);
       return;
     }
@@ -199,12 +202,39 @@ export function RoomQueueBoard({
   const waitingCount = visibleItems.filter(
     (item) => item.status === "aguardando",
   ).length;
+  const newWaitingItems = visibleItems.filter((item) => isQueueItemNew(item, nowMs));
+  const newWaitingCount = newWaitingItems.length;
   const activeCount = visibleItems.filter(
     (item) => item.status === "chamado" || item.status === "em_atendimento",
   ).length;
+  const { notificationPermission, requestNotificationPermission } = useAttentionAlert({
+    alertIds: newWaitingItems.map((item) => item.id),
+    body:
+      newWaitingCount === 1
+        ? `Existe 1 novo paciente aguardando em ${room.roomName}.`
+        : `Existem ${newWaitingCount} novos pacientes aguardando em ${room.roomName}.`,
+    count: newWaitingCount,
+    title:
+      newWaitingCount === 1
+        ? `Novo paciente em ${room.shortName}`
+        : `${newWaitingCount} novos pacientes em ${room.shortName}`,
+  });
 
   return (
     <div className="space-y-6">
+      {newWaitingCount ? (
+        <div className="rounded-[24px] border border-amber-300 bg-gradient-to-r from-amber-100 via-amber-50 to-white px-5 py-4 shadow-[0_18px_40px_rgba(245,158,11,0.12)]">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+            <p className="text-sm font-semibold text-amber-950">
+              {newWaitingCount} novo
+              {newWaitingCount === 1 ? "" : "s"} paciente
+              {newWaitingCount === 1 ? "" : "s"} aguardando nesta sala.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <section className="app-panel rounded-[30px] px-6 py-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -215,19 +245,26 @@ export function RoomQueueBoard({
               Voltar para as salas
             </Link>
             <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
-              Operação da sala
+              Operacao da sala
             </p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
               {room.roomName}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Chame o próximo paciente, inicie o exame, conclua a etapa e, se
-              necessário, cancele o requerimento inteiro com autorização da gerência.
+              Chame o proximo paciente, inicie o exame, conclua a etapa e, se
+              necessario, cancele o requerimento inteiro com a senha predefinida.
             </p>
           </div>
 
           <div className="space-y-3">
-            <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <PwaInstallControl />
+              <AttentionAlertControl
+                notificationPermission={notificationPermission}
+                onRequestPermission={requestNotificationPermission}
+              />
+              <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
+            </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-[24px] border border-amber-200/80 bg-amber-50 px-5 py-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
@@ -268,14 +305,14 @@ export function RoomQueueBoard({
         <section className="grid gap-4 xl:grid-cols-2">
           {visibleItems.map((item) => {
             const nextActionLabel = getNextStatusLabel(item.status);
-            const referenceNow =
-              nowMs ?? new Date(item.attendance?.created_at ?? item.created_at).getTime();
+            const referenceNow = nowMs;
             const waitMinutes = getQueueWaitMinutes(
               { created_at: item.attendance?.created_at ?? item.created_at },
               referenceNow,
             );
             const isNew = isQueueItemNew(item, referenceNow);
             const cancellationOpen = cancelAttendanceId === item.attendance_id;
+            const containerStyle = STATUS_CONTAINER_STYLES[item.status];
 
             return (
               <article
@@ -283,7 +320,7 @@ export function RoomQueueBoard({
                 className={
                   isNew
                     ? "rounded-[30px] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white px-6 py-6 shadow-[0_28px_60px_rgba(245,158,11,0.12)]"
-                    : "app-panel rounded-[30px] px-6 py-6"
+                    : `rounded-[30px] border px-6 py-6 ${containerStyle.article}`
                 }
               >
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -296,13 +333,14 @@ export function RoomQueueBoard({
                         <PriorityBadge priority={item.attendance.priority} />
                       ) : null}
                       {isNew ? (
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-                          Novo
+                        <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                          <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                          Novo aguardando
                         </span>
                       ) : null}
                     </div>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      {item.attendance?.notes || item.notes || "Sem observação registrada."}
+                      {item.attendance?.notes || item.notes || "Sem observacao registrada."}
                     </p>
                   </div>
 
@@ -328,9 +366,9 @@ export function RoomQueueBoard({
                   />
                 </div>
 
-                <div className="mt-6 rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
+                <div className={`mt-6 rounded-[22px] border px-4 py-4 ${containerStyle.panel}`}>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Situação
+                    Situacao
                   </p>
                   <p className="mt-2 text-lg font-semibold text-slate-900">
                     {ROOM_STATUS_LABELS[item.status]}
@@ -348,8 +386,8 @@ export function RoomQueueBoard({
                       {pendingItemId === item.id ? "Atualizando..." : nextActionLabel}
                     </button>
                   ) : (
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-                      Etapa concluída
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                      Etapa concluida
                     </div>
                   )}
 
@@ -376,7 +414,7 @@ export function RoomQueueBoard({
                     </p>
                     <p className="mt-2 text-sm text-rose-700">
                       O cancelamento tira todas as etapas abertas do fluxo e exige
-                      senha da gerência.
+                      a senha predefinida de autorizacao.
                     </p>
 
                     <div className="mt-4 grid gap-4">
@@ -389,20 +427,20 @@ export function RoomQueueBoard({
                           value={cancelReason}
                           onChange={(event) => setCancelReason(event.target.value)}
                           className="w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
-                          placeholder="Ex.: pedido cancelado, documentação incorreta, paciente desistiu."
+                          placeholder="Ex.: pedido cancelado, documentacao incorreta, paciente desistiu."
                         />
                       </label>
 
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold text-slate-700">
-                          Senha da gerência
+                          Senha de autorizacao
                         </span>
                         <input
                           type="password"
                           value={cancelPassword}
                           onChange={(event) => setCancelPassword(event.target.value)}
                           className="w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
-                          placeholder="Senha de autorização"
+                          placeholder="Senha de autorizacao"
                         />
                       </label>
 
@@ -446,7 +484,7 @@ export function RoomQueueBoard({
       ) : (
         <EmptyState
           title="Nenhum paciente nesta sala"
-          description="Assim que a recepção enviar um novo atendimento para esta fila, ele aparece aqui automaticamente."
+          description="Assim que a recepcao enviar um novo atendimento para esta fila, ele aparece aqui automaticamente."
         />
       )}
 
@@ -455,7 +493,7 @@ export function RoomQueueBoard({
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Histórico
+                Historico
               </p>
               <h3 className="mt-2 text-2xl font-semibold text-slate-950">
                 Cancelamentos desta sala
@@ -500,6 +538,39 @@ export function RoomQueueBoard({
     </div>
   );
 }
+
+const STATUS_CONTAINER_STYLES: Record<
+  QueueItemRecord["status"],
+  {
+    article: string;
+    panel: string;
+  }
+> = {
+  aguardando: {
+    article:
+      "border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white shadow-[0_24px_52px_rgba(245,158,11,0.10)]",
+    panel: "border-amber-200 bg-amber-50/80",
+  },
+  chamado: {
+    article:
+      "border-sky-200 bg-gradient-to-br from-sky-50 via-white to-white shadow-[0_24px_52px_rgba(14,165,233,0.10)]",
+    panel: "border-sky-200 bg-sky-50/80",
+  },
+  em_atendimento: {
+    article:
+      "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white shadow-[0_24px_52px_rgba(16,185,129,0.10)]",
+    panel: "border-emerald-200 bg-emerald-50/80",
+  },
+  finalizado: {
+    article: "border-slate-200 bg-white",
+    panel: "border-slate-200 bg-white/85",
+  },
+  cancelado: {
+    article:
+      "border-rose-200 bg-gradient-to-br from-rose-50 via-white to-white shadow-[0_24px_52px_rgba(244,63,94,0.08)]",
+    panel: "border-rose-200 bg-rose-50/80",
+  },
+};
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (

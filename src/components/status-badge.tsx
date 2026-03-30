@@ -6,11 +6,11 @@ const STATUS_STYLES: Record<QueueStatus, string> = {
   aguardando:
     "border-amber-300 bg-amber-100 text-amber-950 shadow-[0_10px_24px_rgba(245,158,11,0.14)]",
   chamado:
-    "border-sky-200 bg-sky-50 text-sky-800 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.04)]",
+    "border-sky-300 bg-sky-100 text-sky-950 shadow-[0_10px_24px_rgba(14,165,233,0.12)]",
   em_atendimento:
-    "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.04)]",
+    "border-emerald-300 bg-emerald-100 text-emerald-950 shadow-[0_10px_24px_rgba(16,185,129,0.12)]",
   finalizado:
-    "border-slate-200 bg-slate-100 text-slate-700 shadow-[inset_0_0_0_1px_rgba(100,116,139,0.04)]",
+    "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.06)]",
   cancelado:
     "border-rose-200 bg-rose-50 text-rose-700 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.04)]",
 };

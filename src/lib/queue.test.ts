@@ -5,6 +5,7 @@ import {
   getAttendanceOverallStatus,
   getNextStatus,
   getRangeBounds,
+  sortRoomQueueItems,
   sortAttendancesByPriorityAndCreatedAt,
 } from "@/lib/queue";
 
@@ -37,7 +38,7 @@ function buildQueueItem(
     canceled_at: null,
     created_at: "2026-03-25T10:00:00.000Z",
     created_by: "profile-1",
-    exam_type: "panoramico",
+    exam_type: "panoramica",
     finished_at: null,
     finished_by: null,
     id: "queue-item-1",
@@ -127,4 +128,95 @@ test("getRangeBounds monta o recorte do trimestre corretamente em Manaus", () =>
 
   assert.equal(range.startIso, "2026-04-01T04:00:00.000Z");
   assert.equal(range.endIso, "2026-07-01T04:00:00.000Z");
+});
+
+test("sortRoomQueueItems prioriza fluxo ativo e usa o horario operacional do status", () => {
+  const attendance = buildAttendance();
+  const ordered = sortRoomQueueItems([
+    {
+      ...buildQueueItem({
+        attendance_id: "attendance-finalizado",
+        finished_at: "2026-03-25T10:30:00.000Z",
+        id: "finalizado-recente",
+        status: "finalizado",
+        updated_at: "2026-03-25T10:30:00.000Z",
+      }),
+      attendance: buildAttendance({ id: "attendance-finalizado" }),
+    },
+    {
+      ...buildQueueItem({
+        attendance_id: "attendance-aguardando",
+        created_at: "2026-03-25T10:00:00.000Z",
+        id: "aguardando-antigo",
+        status: "aguardando",
+      }),
+      attendance: buildAttendance({
+        created_at: "2026-03-25T10:00:00.000Z",
+        id: "attendance-aguardando",
+      }),
+    },
+    {
+      ...buildQueueItem({
+        attendance_id: "attendance-chamado",
+        called_at: "2026-03-25T10:06:00.000Z",
+        id: "chamado-antigo",
+        status: "chamado",
+      }),
+      attendance: buildAttendance({ id: "attendance-chamado" }),
+    },
+    {
+      ...buildQueueItem({
+        attendance_id: "attendance-em-atendimento-2",
+        id: "em-atendimento-recente",
+        started_at: "2026-03-25T10:12:00.000Z",
+        status: "em_atendimento",
+      }),
+      attendance: buildAttendance({ id: "attendance-em-atendimento-2" }),
+    },
+    {
+      ...buildQueueItem({
+        attendance_id: "attendance-em-atendimento-1",
+        id: "em-atendimento-antigo",
+        started_at: "2026-03-25T10:08:00.000Z",
+        status: "em_atendimento",
+      }),
+      attendance: buildAttendance({ id: "attendance-em-atendimento-1" }),
+    },
+    {
+      ...buildQueueItem({
+        attendance_id: "attendance-cancelado",
+        canceled_at: "2026-03-25T10:25:00.000Z",
+        id: "cancelado-recente",
+        status: "cancelado",
+        updated_at: "2026-03-25T10:25:00.000Z",
+      }),
+      attendance: buildAttendance({
+        canceled_at: "2026-03-25T10:25:00.000Z",
+        id: "attendance-cancelado",
+      }),
+    },
+    {
+      ...buildQueueItem({
+        attendance_id: attendance.id,
+        id: "finalizado-antigo",
+        finished_at: "2026-03-25T10:18:00.000Z",
+        status: "finalizado",
+        updated_at: "2026-03-25T10:18:00.000Z",
+      }),
+      attendance,
+    },
+  ]);
+
+  assert.deepEqual(
+    ordered.map((item) => item.id),
+    [
+      "em-atendimento-antigo",
+      "em-atendimento-recente",
+      "chamado-antigo",
+      "aguardando-antigo",
+      "finalizado-recente",
+      "finalizado-antigo",
+      "cancelado-recente",
+    ],
+  );
 });

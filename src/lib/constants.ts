@@ -23,96 +23,112 @@ export const ROOM_ORDER: RoomSlug[] = [
   "tomografia",
 ];
 
-export const ROOM_CONFIG = {
-  fotografia_escaneamento: {
-    slug: "fotografia-escaneamento",
-    roomName: "Fotos/escaneamento",
-    shortName: "Foto/scan",
-    route: "/atendimento/fotografia-escaneamento",
-  },
-  periapical: {
-    slug: "periapical",
-    roomName: "Radiografia intra-oral",
-    shortName: "Intra-oral",
-    route: "/atendimento/periapical",
-  },
-  panoramico: {
-    slug: "panoramico",
-    roomName: "Radiografia extra-oral",
-    shortName: "Extra-oral",
-    route: "/atendimento/panoramico",
-  },
-  tomografia: {
-    slug: "tomografia",
-    roomName: "Tomografia",
-    shortName: "Tomografia",
-    route: "/atendimento/tomografia",
-  },
-} as const satisfies Record<
-  ExamType,
-  {
-    slug: RoomSlug;
-    roomName: string;
-    shortName: string;
-    route: string;
-  }
->;
-
 export const ROOM_BY_SLUG: Record<
   RoomSlug,
   {
-    examType: ExamType;
+    route: string;
     roomName: string;
     shortName: string;
-    route: string;
+    supportedExamTypes: ExamType[];
   }
 > = {
   "fotografia-escaneamento": {
-    examType: "fotografia_escaneamento",
+    route: "/atendimento/fotografia-escaneamento",
     roomName: "Fotos/escaneamento",
     shortName: "Foto/scan",
-    route: "/atendimento/fotografia-escaneamento",
+    supportedExamTypes: ["fotografia", "escaneamento_intra_oral"],
   },
   periapical: {
-    examType: "periapical",
+    route: "/atendimento/periapical",
     roomName: "Radiografia intra-oral",
     shortName: "Intra-oral",
-    route: "/atendimento/periapical",
+    supportedExamTypes: ["periapical", "interproximal"],
   },
   panoramico: {
-    examType: "panoramico",
+    route: "/atendimento/panoramico",
     roomName: "Radiografia extra-oral",
     shortName: "Extra-oral",
-    route: "/atendimento/panoramico",
+    supportedExamTypes: ["panoramica", "telerradiografia"],
   },
   tomografia: {
-    examType: "tomografia",
+    route: "/atendimento/tomografia",
     roomName: "Tomografia",
     shortName: "Tomografia",
-    route: "/atendimento/tomografia",
+    supportedExamTypes: ["tomografia"],
   },
 };
 
+export const ROOM_CONFIG = ROOM_BY_SLUG;
+
+export const EXAM_TYPE_ORDER: ExamType[] = [
+  "fotografia",
+  "escaneamento_intra_oral",
+  "periapical",
+  "interproximal",
+  "panoramica",
+  "telerradiografia",
+  "tomografia",
+];
+
+export const EXAM_ORDER = EXAM_TYPE_ORDER;
+
 export const EXAM_LABELS: Record<ExamType, string> = {
-  fotografia_escaneamento: "Fotografia e escaneamento",
+  fotografia: "Fotografia",
+  escaneamento_intra_oral: "Escaneamento intra-oral",
+  periapical: "Periapical",
+  interproximal: "Interproximal",
+  panoramica: "Panorâmica",
+  telerradiografia: "Telerradiografia",
+  tomografia: "Tomografia",
+};
+
+export const EXAM_SHORT_LABELS: Record<ExamType, string> = {
+  fotografia: "Foto",
+  escaneamento_intra_oral: "Scan intra",
+  periapical: "Periapical",
+  interproximal: "Interprox.",
+  panoramica: "Panorâmica",
+  telerradiografia: "Telerradio",
+  tomografia: "Tomografia",
+};
+
+export const EXAM_TO_ROOM_SLUG: Record<ExamType, RoomSlug> = {
+  fotografia: "fotografia-escaneamento",
+  escaneamento_intra_oral: "fotografia-escaneamento",
+  periapical: "periapical",
+  interproximal: "periapical",
+  panoramica: "panoramico",
+  telerradiografia: "panoramico",
+  tomografia: "tomografia",
+};
+
+export const ROOM_EXAM_TYPES: Record<RoomSlug, ExamType[]> = {
+  "fotografia-escaneamento": ["fotografia", "escaneamento_intra_oral"],
+  periapical: ["periapical", "interproximal"],
+  panoramico: ["panoramica", "telerradiografia"],
+  tomografia: ["tomografia"],
+};
+
+export const ROOM_EXAM_LABELS: Record<RoomSlug, string> = {
+  "fotografia-escaneamento": "Fotografia e escaneamento intra-oral",
   periapical: "Periapical e interproximal",
   panoramico: "Panorâmica e telerradiografia",
   tomografia: "Tomografia",
 };
 
 export const STATUS_LABELS: Record<QueueStatus, string> = {
-  aguardando: "Aguardando",
+  aguardando: "Aguardando ser chamado",
   chamado: "Chamado",
-  em_atendimento: "Em atendimento",
-  finalizado: "Finalizado",
+  em_atendimento: "Em exame",
+  finalizado: "Concluído",
   cancelado: "Cancelado",
 };
 
 export const ROOM_STATUS_LABELS: Record<QueueStatus, string> = {
-  aguardando: "Na fila",
-  chamado: "Paciente chamado",
+  aguardando: "Aguardando ser chamado",
+  chamado: "Chamado",
   em_atendimento: "Em exame",
-  finalizado: "Etapa concluída",
+  finalizado: "Concluído",
   cancelado: "Atendimento cancelado",
 };
 

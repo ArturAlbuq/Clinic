@@ -11,9 +11,12 @@ $$;
 do $$
 begin
   create type public.exam_type as enum (
-    'fotografia_escaneamento',
+    'fotografia',
+    'escaneamento_intra_oral',
     'periapical',
-    'panoramico',
+    'interproximal',
+    'panoramica',
+    'telerradiografia',
     'tomografia'
   );
 exception
@@ -56,7 +59,6 @@ create table if not exists public.profiles (
 
 create table if not exists public.exam_rooms (
   slug text primary key,
-  exam_type public.exam_type not null unique,
   name text not null,
   sort_order integer not null unique,
   created_at timestamptz not null default timezone('utc', now())
@@ -67,6 +69,19 @@ create table if not exists public.profile_room_access (
   room_slug text not null references public.exam_rooms (slug) on update cascade on delete cascade,
   created_at timestamptz not null default timezone('utc', now()),
   primary key (profile_id, room_slug)
+);
+
+create table if not exists public.manager_approval_attempts (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid not null references public.profiles (id) on delete cascade,
+  attendance_id uuid not null references public.attendances (id) on delete cascade,
+  manager_email text not null,
+  authorized_manager_id uuid references public.profiles (id) on delete set null,
+  success boolean not null,
+  failure_reason text,
+  ip_address text,
+  user_agent text,
+  attempted_at timestamptz not null default timezone('utc', now())
 );
 
 create table if not exists public.attendances (
@@ -118,6 +133,12 @@ create index if not exists attendances_priority_created_at_idx
 create index if not exists profile_room_access_room_slug_idx
   on public.profile_room_access (room_slug);
 
+create index if not exists manager_approval_attempts_actor_attempted_at_idx
+  on public.manager_approval_attempts (actor_user_id, attempted_at desc);
+
+create index if not exists manager_approval_attempts_attendance_attempted_at_idx
+  on public.manager_approval_attempts (attendance_id, attempted_at desc);
+
 create index if not exists queue_items_created_at_idx
   on public.queue_items (created_at desc);
 
@@ -127,20 +148,18 @@ create index if not exists queue_items_room_status_idx
 create index if not exists queue_items_attendance_id_idx
   on public.queue_items (attendance_id);
 
-insert into public.exam_rooms (slug, exam_type, name, sort_order)
+insert into public.exam_rooms (slug, name, sort_order)
 values
   (
     'fotografia-escaneamento',
-    'fotografia_escaneamento',
-    'Fotos/escaneamento',
+    'Fotos e escaneamento',
     1
   ),
-  ('periapical', 'periapical', 'Radiografia intra-oral', 2),
-  ('panoramico', 'panoramico', 'Radiografia extra-oral', 3),
-  ('tomografia', 'tomografia', 'Tomografia', 4)
+  ('periapical', 'Radiografia intra-oral', 2),
+  ('panoramico', 'Radiografia extra-oral', 3),
+  ('tomografia', 'Tomografia', 4)
 on conflict (slug) do update
 set
-  exam_type = excluded.exam_type,
   name = excluded.name,
   sort_order = excluded.sort_order;
 
@@ -255,10 +274,16 @@ language plpgsql
 set search_path = public
 as $$
 begin
-  select slug
-  into new.room_slug
-  from public.exam_rooms
-  where exam_type = new.exam_type;
+  new.room_slug := case new.exam_type
+    when 'fotografia' then 'fotografia-escaneamento'
+    when 'escaneamento_intra_oral' then 'fotografia-escaneamento'
+    when 'periapical' then 'periapical'
+    when 'interproximal' then 'periapical'
+    when 'panoramica' then 'panoramico'
+    when 'telerradiografia' then 'panoramico'
+    when 'tomografia' then 'tomografia'
+    else null
+  end;
 
   if new.room_slug is null then
     raise exception 'sala nao encontrada para o exame %', new.exam_type;
@@ -606,6 +631,7 @@ for each row execute procedure public.stamp_queue_status();
 alter table public.profiles enable row level security;
 alter table public.exam_rooms enable row level security;
 alter table public.profile_room_access enable row level security;
+alter table public.manager_approval_attempts enable row level security;
 alter table public.attendances enable row level security;
 alter table public.queue_items enable row level security;
 
@@ -629,6 +655,23 @@ on public.profile_room_access
 for select
 to authenticated
 using (profile_id = auth.uid() or public.current_app_role() = 'admin');
+
+drop policy if exists "manager_approval_attempts_select_self_or_admin" on public.manager_approval_attempts;
+create policy "manager_approval_attempts_select_self_or_admin"
+on public.manager_approval_attempts
+for select
+to authenticated
+using (
+  actor_user_id = auth.uid()
+  or public.current_app_role() = 'admin'
+);
+
+drop policy if exists "manager_approval_attempts_insert_self" on public.manager_approval_attempts;
+create policy "manager_approval_attempts_insert_self"
+on public.manager_approval_attempts
+for insert
+to authenticated
+with check (actor_user_id = auth.uid());
 
 drop policy if exists "attendances_select_by_role_and_scope" on public.attendances;
 create policy "attendances_select_by_role_and_scope"

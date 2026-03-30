@@ -1,5 +1,3 @@
-alter type public.queue_status add value if not exists 'cancelado';
-
 drop function if exists public.create_attendance_with_queue_items(
   text,
   public.attendance_priority,
@@ -25,6 +23,8 @@ begin
   end if;
 end
 $$;
+
+drop view if exists public.attendance_overview;
 
 alter table public.attendances
   alter column priority drop default;

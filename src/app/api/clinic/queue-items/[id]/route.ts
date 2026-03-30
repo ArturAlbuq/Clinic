@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import type { QueueItemRecord, QueueStatus } from "@/lib/database.types";
+import { logServerError } from "@/lib/server-error";
 
 type UpdateQueueItemBody = {
   status?: QueueStatus;
@@ -12,6 +13,14 @@ const ALLOWED_STATUSES = new Set<QueueStatus>([
   "em_atendimento",
   "finalizado",
 ]);
+
+async function parseBody(request: Request) {
+  try {
+    return (await request.json()) as UpdateQueueItemBody;
+  } catch {
+    return null;
+  }
+}
 
 export async function PATCH(
   request: Request,
@@ -25,7 +34,14 @@ export async function PATCH(
 
   const { profile, supabase } = await requireRole(["atendimento", "admin"]);
   const { id } = await context.params;
-  const body = (await request.json()) as UpdateQueueItemBody;
+  const body = await parseBody(request);
+
+  if (!body) {
+    return NextResponse.json(
+      { error: "Corpo da requisição inválido." },
+      { status: 400 },
+    );
+  }
 
   if (!body.status || !ALLOWED_STATUSES.has(body.status)) {
     return NextResponse.json({ error: "Status inválido." }, { status: 400 });
@@ -42,8 +58,10 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
+    logServerError("update_queue_item", error);
+
     return NextResponse.json(
-      { error: error?.message || "Não foi possível atualizar o status." },
+      { error: "Não foi possível atualizar o status." },
       { status: 400 },
     );
   }

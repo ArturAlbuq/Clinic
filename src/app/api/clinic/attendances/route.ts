@@ -7,6 +7,7 @@ import type {
   QueueItemRecord,
 } from "@/lib/database.types";
 import { normalizeAttendanceRecord, normalizeQueueItemRecord } from "@/lib/queue";
+import { logServerError } from "@/lib/server-error";
 
 type CreateAttendanceBody = {
   examQuantities?: Partial<Record<ExamType, number>>;
@@ -28,9 +29,12 @@ const ALLOWED_PRIORITIES = new Set<AttendancePriority>([
 ]);
 
 const ALLOWED_EXAMS = new Set<ExamType>([
-  "fotografia_escaneamento",
+  "fotografia",
+  "escaneamento_intra_oral",
   "periapical",
-  "panoramico",
+  "interproximal",
+  "panoramica",
+  "telerradiografia",
   "tomografia",
 ]);
 
@@ -81,15 +85,42 @@ function isLegacyRpcSignatureError(message?: string | null) {
   );
 }
 
+function isLegacyExamTypeEnumError(message?: string | null) {
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes("invalid input value for enum exam_type") ||
+    message.includes("invalid input syntax for type public.exam_type")
+  );
+}
+
+async function parseBody(request: Request) {
+  try {
+    return (await request.json()) as CreateAttendanceBody;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: Request) {
   const requestOrigin = request.headers.get("origin");
 
   if (requestOrigin && requestOrigin !== new URL(request.url).origin) {
-    return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
+    return NextResponse.json({ error: "Origem invalida." }, { status: 403 });
   }
 
   const { supabase } = await requireRole(["recepcao", "admin"]);
-  const body = (await request.json()) as CreateAttendanceBody;
+  const body = await parseBody(request);
+
+  if (!body) {
+    return NextResponse.json(
+      { error: "Corpo da requisicao invalido." },
+      { status: 400 },
+    );
+  }
+
   const patientName = body.patientName?.trim() ?? "";
   const notes = body.notes?.trim() ?? "";
   const priority = body.priority;
@@ -103,7 +134,7 @@ export async function POST(request: Request) {
   }
 
   if (!priority || !ALLOWED_PRIORITIES.has(priority)) {
-    return NextResponse.json({ error: "Prioridade inválida." }, { status: 400 });
+    return NextResponse.json({ error: "Prioridade invalida." }, { status: 400 });
   }
 
   if (
@@ -111,7 +142,7 @@ export async function POST(request: Request) {
     selectedExams.some((examType) => !ALLOWED_EXAMS.has(examType))
   ) {
     return NextResponse.json(
-      { error: "Selecione ao menos um exame válido." },
+      { error: "Selecione ao menos um exame valido." },
       { status: 400 },
     );
   }
@@ -145,12 +176,17 @@ export async function POST(request: Request) {
   }
 
   if (rpcError || !payload) {
+    logServerError("create_attendance.rpc", rpcError);
+
+    const errorMessage = isLegacyExamTypeEnumError(rpcError?.message)
+      ? "Banco desatualizado. Aplique as migrations do projeto e tente novamente."
+      : "Nao foi possivel salvar o atendimento completo.";
+
     return NextResponse.json(
       {
-        error:
-          rpcError?.message || "Não foi possível salvar o atendimento completo.",
+        error: errorMessage,
       },
-      { status: 400 },
+      { status: isLegacyExamTypeEnumError(rpcError?.message) ? 503 : 400 },
     );
   }
 

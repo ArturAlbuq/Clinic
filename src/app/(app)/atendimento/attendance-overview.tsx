@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
+import { AttentionAlertControl } from "@/components/attention-alert-control";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityBadge } from "@/components/priority-badge";
+import { PwaInstallControl } from "@/components/pwa-install-control";
 import { RealtimeStatusBadge } from "@/components/realtime-status";
+import { useAttentionAlert } from "@/hooks/use-attention-alert";
 import { ROOM_BY_SLUG } from "@/lib/constants";
 import type {
   AttendanceRecord,
@@ -37,6 +41,22 @@ export function AttendanceOverview({
     });
 
   const enrichedItems = combineQueueItemsWithAttendances(queueItems, attendances);
+  const newWaitingItems = useMemo(
+    () => queueItems.filter((item) => isQueueItemNew(item)),
+    [queueItems],
+  );
+  const { notificationPermission, requestNotificationPermission } = useAttentionAlert({
+    alertIds: newWaitingItems.map((item) => item.id),
+    body:
+      newWaitingItems.length === 1
+        ? "Existe 1 novo paciente aguardando em uma das salas."
+        : `Existem ${newWaitingItems.length} novos pacientes aguardando nas salas.`,
+    count: newWaitingItems.length,
+    title:
+      newWaitingItems.length === 1
+        ? "Novo paciente aguardando"
+        : `${newWaitingItems.length} novos pacientes aguardando`,
+  });
 
   const waitingCount = queueItems.filter((item) => item.status === "aguardando").length;
   const activeCount = queueItems.filter(
@@ -71,8 +91,15 @@ export function AttendanceOverview({
                 Cada sala vê apenas os próprios pacientes, com prioridade e ordem
                 de chegada preservadas.
               </p>
+          </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <PwaInstallControl />
+              <AttentionAlertControl
+                notificationPermission={notificationPermission}
+                onRequestPermission={requestNotificationPermission}
+              />
+              <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
             </div>
-            <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -114,7 +141,11 @@ export function AttendanceOverview({
             <Link
               key={roomEntry.slug}
               href={room.route}
-              className="app-panel group rounded-[30px] px-6 py-6 hover:-translate-y-1 hover:border-cyan-200 hover:shadow-[0_26px_60px_rgba(15,23,42,0.1)]"
+              className={
+                hasNewPatient
+                  ? "app-panel group rounded-[30px] border-amber-300 bg-gradient-to-br from-amber-50 via-white to-white px-6 py-6 shadow-[0_24px_56px_rgba(245,158,11,0.14)] hover:-translate-y-1 hover:border-amber-400"
+                  : "app-panel group rounded-[30px] px-6 py-6 hover:-translate-y-1 hover:border-cyan-200 hover:shadow-[0_26px_60px_rgba(15,23,42,0.1)]"
+              }
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -126,8 +157,9 @@ export function AttendanceOverview({
                   </h3>
                 </div>
                 {hasNewPatient ? (
-                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-                    Novo
+                  <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                    <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                    Novo aguardando
                   </span>
                 ) : null}
               </div>

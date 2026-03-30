@@ -326,9 +326,9 @@ export function sortAttendancesByPriorityAndCreatedAt<
 
 export function sortRoomQueueItems(items: QueueItemWithAttendance[]) {
   const statusRank: Record<QueueStatus, number> = {
-    aguardando: 0,
+    em_atendimento: 0,
     chamado: 1,
-    em_atendimento: 2,
+    aguardando: 2,
     finalizado: 3,
     cancelado: 4,
   };
@@ -338,6 +338,41 @@ export function sortRoomQueueItems(items: QueueItemWithAttendance[]) {
 
     if (statusDiff !== 0) {
       return statusDiff;
+    }
+
+    const leftRelevantTime =
+      left.status === "em_atendimento"
+        ? left.started_at ?? left.called_at ?? left.created_at
+        : left.status === "chamado"
+          ? left.called_at ?? left.created_at
+          : left.status === "aguardando"
+            ? left.attendance?.created_at ?? left.created_at
+            : left.status === "finalizado"
+              ? left.finished_at ?? left.updated_at ?? left.created_at
+              : left.canceled_at ??
+                left.attendance?.canceled_at ??
+                left.updated_at ??
+                left.created_at;
+    const rightRelevantTime =
+      right.status === "em_atendimento"
+        ? right.started_at ?? right.called_at ?? right.created_at
+        : right.status === "chamado"
+          ? right.called_at ?? right.created_at
+          : right.status === "aguardando"
+            ? right.attendance?.created_at ?? right.created_at
+            : right.status === "finalizado"
+              ? right.finished_at ?? right.updated_at ?? right.created_at
+              : right.canceled_at ??
+                right.attendance?.canceled_at ??
+                right.updated_at ??
+                right.created_at;
+    const relevantTimeDiff =
+      new Date(leftRelevantTime).getTime() - new Date(rightRelevantTime).getTime();
+
+    if (relevantTimeDiff !== 0) {
+      return left.status === "finalizado" || left.status === "cancelado"
+        ? -relevantTimeDiff
+        : relevantTimeDiff;
     }
 
     const leftPriority = left.attendance?.priority ?? "normal";
@@ -352,9 +387,7 @@ export function sortRoomQueueItems(items: QueueItemWithAttendance[]) {
     const leftCreatedAt = left.attendance?.created_at ?? left.created_at;
     const rightCreatedAt = right.attendance?.created_at ?? right.created_at;
 
-    return (
-      new Date(leftCreatedAt).getTime() - new Date(rightCreatedAt).getTime()
-    );
+    return new Date(leftCreatedAt).getTime() - new Date(rightCreatedAt).getTime();
   });
 }
 
