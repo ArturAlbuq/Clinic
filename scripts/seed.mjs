@@ -120,6 +120,13 @@ const users = [
     room_slugs: [],
   },
   {
+    email: "chrisR@clinic.local",
+    full_name: "CHRIS R",
+    passwordEnv: "SEED_CHRISR_PASSWORD",
+    role: "recepcao",
+    room_slugs: [],
+  },
+  {
     email: "atendimento1@clinic.local",
     full_name: "Atendimento 1",
     passwordEnv: "SEED_ATENDIMENTO1_PASSWORD",
@@ -144,6 +151,13 @@ const users = [
     email: "juliane@clinic.local",
     full_name: "JULIANE",
     passwordEnv: "SEED_JULIANE_PASSWORD",
+    role: "atendimento",
+    room_slugs: allRoomSlugs,
+  },
+  {
+    email: "chrisA@clinic.local",
+    full_name: "CHRIS A",
+    passwordEnv: "SEED_CHRISA_PASSWORD",
     role: "atendimento",
     room_slugs: allRoomSlugs,
   },

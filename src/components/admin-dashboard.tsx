@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AttendanceTimeline } from "@/components/attendance-timeline";
 import { EmptyState } from "@/components/empty-state";
@@ -35,6 +35,7 @@ import type {
   QueueItemRecord,
 } from "@/lib/database.types";
 import {
+  formatClock,
   formatDateInputValue,
   formatDateTime,
   formatMinuteLabel,
@@ -43,7 +44,11 @@ import {
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import {
   getAttendanceOverallStatus,
+  getAttendanceTotalMinutes,
   getAverageWaitMinutes,
+  getQueueStageExecutionMinutes,
+  getQueueStageTotalMinutes,
+  getQueueStageWaitMinutes,
   getQueueWaitMinutes,
   groupAttendancesWithQueueItems,
   sortAttendanceQueueItemsByFlow,
@@ -88,6 +93,7 @@ export function AdminDashboard({
   const [pageSize, setPageSize] = useState<PageSize>(5);
   const [currentPage, setCurrentPage] = useState(1);
   const [reportRoomFilter, setReportRoomFilter] = useState<RoomSlug | "todas">("todas");
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const { attendances, queueItems, realtimeError, realtimeStatus } = useRealtimeClinicData({
     initialAttendances,
@@ -95,7 +101,21 @@ export function AdminDashboard({
     range,
   });
 
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setNowMs(Date.now()));
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30000);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const periodLabel = getAdminPeriodLabel(initialPeriod, initialSelectedDate);
+  const profileMap = useMemo(
+    () => new Map(profiles.map((profile) => [profile.id, profile])),
+    [profiles],
+  );
   const groupedAttendances = useMemo(
     () => sortAttendancesByPriorityAndCreatedAt(groupAttendancesWithQueueItems(attendances, queueItems)),
     [attendances, queueItems],
@@ -329,7 +349,16 @@ export function AdminDashboard({
             </div>
             {visibleAttendances.length ? (
               <>
-                <div className="mt-6 space-y-3">{paginatedAttendances.map((attendance) => <AttendanceRow key={attendance.id} attendance={attendance} />)}</div>
+                <div className="mt-6 space-y-3">
+                  {paginatedAttendances.map((attendance) => (
+                    <AttendanceRow
+                      key={attendance.id}
+                      attendance={attendance}
+                      nowMs={nowMs}
+                      profileMap={profileMap}
+                    />
+                  ))}
+                </div>
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-slate-50/80 px-4 py-4">
                   <p className="text-sm text-slate-600">Pagina {safeCurrentPage} de {totalPages}</p>
                   <div className="flex flex-wrap items-center gap-2">
@@ -431,22 +460,202 @@ export function AdminDashboard({
   );
 }
 
-function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems }) {
+function AttendanceRow({
+  attendance,
+  nowMs,
+  profileMap,
+}: {
+  attendance: AttendanceWithQueueItems;
+  nowMs: number;
+  profileMap: Map<string, ProfileRecord>;
+}) {
   const overallStatus = getAttendanceOverallStatus(attendance, attendance.queueItems);
-  const stepSummary = sortAttendanceQueueItemsByFlow(attendance.queueItems)
-    .map((item) => EXAM_LABELS[item.exam_type])
+  const orderedItems = sortAttendanceQueueItemsByFlow(attendance.queueItems);
+  const stepSummary = orderedItems
+    .map((item) => {
+      const roomLabel =
+        ROOM_BY_SLUG[item.room_slug as RoomSlug]?.shortName ?? item.room_slug;
+
+      return item.requested_quantity > 1
+        ? `${roomLabel} x${item.requested_quantity}`
+        : roomLabel;
+    })
     .join(" + ");
+  const waitingItems = attendance.queueItems.filter(
+    (item) => item.status === "aguardando",
+  );
+  const completedSteps = attendance.queueItems.filter(
+    (item) => item.status === "finalizado",
+  ).length;
+  const longestWait = waitingItems.reduce<number | null>((longest, item) => {
+    const currentWait = getQueueWaitMinutes(item, nowMs);
+
+    if (longest === null || currentWait > longest) {
+      return currentWait;
+    }
+
+    return longest;
+  }, null);
+  const totalAttendanceMinutes = getAttendanceTotalMinutes(
+    attendance,
+    attendance.queueItems,
+    nowMs,
+  );
+  const createdByName = attendance.created_by
+    ? profileMap.get(attendance.created_by)?.full_name ?? "Sem identificacao"
+    : "Sem identificacao";
+  const rowTone =
+    overallStatus === "aguardando"
+      ? "border-amber-300 bg-amber-50/40"
+      : overallStatus === "cancelado"
+        ? "border-rose-200 bg-rose-50/40"
+        : "border-slate-200 bg-white/85";
 
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_18px_32px_rgba(15,23,42,0.04)]">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-lg font-semibold text-slate-950">{attendance.patient_name}</p>
-        <PriorityBadge priority={attendance.priority} />
-        <StatusPill status={overallStatus} />
+    <div className={`rounded-[24px] border px-5 py-4 shadow-[0_18px_32px_rgba(15,23,42,0.04)] ${rowTone}`}>
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.7fr_0.8fr_0.9fr] lg:items-start">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-lg font-semibold text-slate-950">{attendance.patient_name}</p>
+            <PriorityBadge priority={attendance.priority} />
+            <StatusPill status={overallStatus} />
+          </div>
+          <p className="mt-1 text-sm text-slate-600">
+            {attendance.notes || "Sem observacao"}
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            Cadastro por {createdByName}
+          </p>
+          {attendance.cancellation_reason ? (
+            <p className="mt-2 text-sm font-medium text-rose-700">
+              Motivo do cancelamento: {attendance.cancellation_reason}
+            </p>
+          ) : null}
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Tempo total
+          </p>
+          <p className="mt-1 text-lg font-semibold text-slate-900">
+            {formatMinuteLabel(totalAttendanceMinutes)}
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Entrada {formatDateTime(attendance.created_at)}
+          </p>
+          {attendance.canceled_at ? (
+            <p className="mt-1 text-sm text-slate-600">
+              Cancelado em {formatDateTime(attendance.canceled_at)}
+            </p>
+          ) : null}
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Resumo
+          </p>
+          <p className="mt-1 text-sm text-slate-700">
+            {stepSummary || "Sem etapa"} · {completedSteps} de{" "}
+            {attendance.queueItems.length} concluidas
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Fila aberta
+          </p>
+          <p className="mt-1 text-sm text-slate-700">
+            {waitingItems.length
+              ? `${waitingItems.length} etapa${waitingItems.length === 1 ? "" : "s"} aguardando`
+              : "Sem espera aberta"}
+          </p>
+          <p className="mt-2 text-sm text-slate-700">
+            Maior espera {longestWait === null ? "--" : formatMinuteLabel(longestWait)}
+          </p>
+        </div>
       </div>
-      <p className="mt-2 text-sm text-slate-600">{stepSummary || "Sem etapa"}</p>
-      <div className="mt-4 border-t border-slate-100 pt-4">
-        <AttendanceTimeline items={attendance.queueItems} title="Fluxo entre salas" />
+      <details className="mt-4 rounded-[20px] border border-slate-200 bg-slate-50/60 px-4 py-4">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900">
+          Ver fluxo e tempos por exame
+        </summary>
+        <div className="mt-4 space-y-4">
+          <AttendanceTimeline items={attendance.queueItems} title="Fluxo entre salas" />
+          {orderedItems.map((item) => (
+            <StageTimingRow
+              key={item.id}
+              item={item}
+              nowMs={nowMs}
+              profileMap={profileMap}
+            />
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function StageTimingRow({
+  item,
+  nowMs,
+  profileMap,
+}: {
+  item: QueueItemRecord;
+  nowMs: number;
+  profileMap: Map<string, ProfileRecord>;
+}) {
+  const executionMinutes = getQueueStageExecutionMinutes(item, nowMs);
+  const totalMinutes = getQueueStageTotalMinutes(item, nowMs);
+  const waitMinutes = getQueueStageWaitMinutes(item, nowMs);
+  const roomLabel =
+    ROOM_BY_SLUG[item.room_slug as RoomSlug]?.roomName ?? item.room_slug;
+  const operatorSummary = [
+    item.called_by
+      ? `Chamado por ${profileMap.get(item.called_by)?.full_name ?? "desconhecido"}`
+      : null,
+    item.started_by
+      ? `Iniciado por ${profileMap.get(item.started_by)?.full_name ?? "desconhecido"}`
+      : null,
+    item.finished_by
+      ? `Finalizado por ${profileMap.get(item.finished_by)?.full_name ?? "desconhecido"}`
+      : null,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" · ");
+
+  return (
+    <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-slate-950">{roomLabel}</p>
+            <StatusBadge status={item.status} />
+            {item.requested_quantity > 1 ? (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                qtd. {item.requested_quantity}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-2 text-sm text-slate-600">{EXAM_LABELS[item.exam_type]}</p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-700">
+            <span>Chamado {item.called_at ? `as ${formatClock(item.called_at)}` : "--"}</span>
+            <span>Iniciado {item.started_at ? `as ${formatClock(item.started_at)}` : "--"}</span>
+            <span>Finalizado {item.finished_at ? `as ${formatClock(item.finished_at)}` : "--"}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-700">
+            <span>Espera: {formatMinuteLabel(waitMinutes)}</span>
+            <span>
+              {item.started_at && !item.finished_at && !item.canceled_at
+                ? `Em execucao ha ${formatMinuteLabel(executionMinutes)}`
+                : `Execucao: ${executionMinutes === null ? "--" : formatMinuteLabel(executionMinutes)}`}
+            </span>
+            <span>Total da etapa: {formatMinuteLabel(totalMinutes)}</span>
+          </div>
+          {operatorSummary ? (
+            <p className="mt-2 text-sm text-slate-600">{operatorSummary}</p>
+          ) : null}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Info label="Chamado" value={item.called_at ? formatClock(item.called_at) : "--"} />
+          <Info label="Inicio" value={item.started_at ? formatClock(item.started_at) : "--"} />
+          <Info label="Execucao" value={executionMinutes === null ? "--" : formatMinuteLabel(executionMinutes)} />
+        </div>
       </div>
     </div>
   );

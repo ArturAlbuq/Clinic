@@ -49,10 +49,12 @@ npm run dev
 - `geovanna@clinic.local` - GEOVANNA
 - `clara@clinic.local` - CLARA
 - `karol@clinic.local` - KAROL
+- `chrisR@clinic.local` - CHRIS R
 - `atendimento1@clinic.local` - Atendimento 1
 - `diego@clinic.local` - DIEGO
 - `ayrton@clinic.local` - AYRTON
 - `juliane@clinic.local` - JULIANE
+- `chrisA@clinic.local` - CHRIS A
 
 Observacoes:
 - o seed cria ou atualiza contas e perfis internos;
