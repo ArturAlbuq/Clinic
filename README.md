@@ -43,18 +43,40 @@ npm run seed
 npm run dev
 ```
 
+## Staging
+Use o arquivo `.env.staging` para popular o projeto remoto de staging com as mesmas salas e usuarios internos.
+
+1. Confirme se o projeto linkado no Supabase CLI e o de staging.
+2. Aplique as migrations no projeto remoto:
+
+```bash
+npm run db:push:staging
+```
+
+3. Rode o seed remoto:
+
+```bash
+npm run seed:staging
+```
+
+Se precisar apontar o seed para outro arquivo de ambiente, use:
+
+```bash
+node scripts/seed.mjs --env-file .env.production
+```
+
 ## Usuarios gerenciados pelo seed
 - `admin@clinic.local` - Admin Clinica
 - `recepcao1@clinic.local` - Recepcao 1
 - `geovanna@clinic.local` - GEOVANNA
 - `clara@clinic.local` - CLARA
 - `karol@clinic.local` - KAROL
-- `chrisR@clinic.local` - CHRIS R
+- `chrisr@clinic.local` - CHRIS R
 - `atendimento1@clinic.local` - Atendimento 1
 - `diego@clinic.local` - DIEGO
 - `ayrton@clinic.local` - AYRTON
 - `juliane@clinic.local` - JULIANE
-- `chrisA@clinic.local` - CHRIS A
+- `chrisa@clinic.local` - CHRIS A
 
 Observacoes:
 - o seed cria ou atualiza contas e perfis internos;

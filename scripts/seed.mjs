@@ -2,10 +2,33 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
-function loadEnvFile(fileName) {
+function parseCliArgs() {
+  const args = process.argv.slice(2);
+
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+
+    if (argument === "--env-file") {
+      return args[index + 1]?.trim() || null;
+    }
+
+    if (argument.startsWith("--env-file=")) {
+      return argument.slice("--env-file=".length).trim() || null;
+    }
+  }
+
+  return process.env.SEED_ENV_FILE?.trim() || null;
+}
+
+function loadEnvFile(fileName, options = {}) {
+  const { overwrite = false, required = false } = options;
   const filePath = path.resolve(process.cwd(), fileName);
 
   if (!fs.existsSync(filePath)) {
+    if (required) {
+      throw new Error(`Arquivo de ambiente nao encontrado: ${fileName}`);
+    }
+
     return;
   }
 
@@ -22,31 +45,43 @@ function loadEnvFile(fileName) {
     const key = trimmed.slice(0, separatorIndex).trim();
     const value = trimmed.slice(separatorIndex + 1).trim();
 
-    if (!process.env[key]) {
+    if (overwrite || !process.env[key]) {
       process.env[key] = value;
     }
   }
+}
+
+const selectedEnvFile = parseCliArgs();
+const activeEnvLabel = selectedEnvFile ?? ".env.local";
+
+loadEnvFile(".env");
+
+if (selectedEnvFile) {
+  loadEnvFile(selectedEnvFile, { overwrite: true, required: true });
+} else {
+  loadEnvFile(".env.local", { overwrite: true });
 }
 
 function requiredSeedPassword(envKey) {
   const password = process.env[envKey]?.trim();
 
   if (!password) {
-    throw new Error(`Defina ${envKey} no .env.local antes de rodar o seed.`);
+    throw new Error(`Defina ${envKey} em ${activeEnvLabel} antes de rodar o seed.`);
   }
 
   return password;
 }
 
-loadEnvFile(".env.local");
-loadEnvFile(".env");
+function normalizeEmail(email) {
+  return email.trim().toLowerCase();
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error(
-    "Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY antes de rodar o seed.",
+    `Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY em ${activeEnvLabel} antes de rodar o seed.`,
   );
   process.exit(1);
 }
@@ -86,14 +121,14 @@ const allRoomSlugs = rooms.map((room) => room.slug);
 const users = [
   {
     email: "admin@clinic.local",
-    full_name: "Admin Clínica",
+    full_name: "Admin Clinica",
     passwordEnv: "SEED_ADMIN_PASSWORD",
     role: "admin",
     room_slugs: [],
   },
   {
     email: "recepcao1@clinic.local",
-    full_name: "Recepção 1",
+    full_name: "Recepcao 1",
     passwordEnv: "SEED_RECEPCAO1_PASSWORD",
     role: "recepcao",
     room_slugs: [],
@@ -120,7 +155,7 @@ const users = [
     room_slugs: [],
   },
   {
-    email: "chrisR@clinic.local",
+    email: "chrisr@clinic.local",
     full_name: "CHRIS R",
     passwordEnv: "SEED_CHRISR_PASSWORD",
     role: "recepcao",
@@ -155,7 +190,7 @@ const users = [
     room_slugs: allRoomSlugs,
   },
   {
-    email: "chrisA@clinic.local",
+    email: "chrisa@clinic.local",
     full_name: "CHRIS A",
     passwordEnv: "SEED_CHRISA_PASSWORD",
     role: "atendimento",
@@ -185,7 +220,10 @@ async function seedUsers() {
   }
 
   for (const user of users) {
-    const existingUser = authUsers.users.find((entry) => entry.email === user.email);
+    const normalizedEmail = normalizeEmail(user.email);
+    const existingUser = authUsers.users.find(
+      (entry) => normalizeEmail(entry.email ?? "") === normalizedEmail,
+    );
     const password = requiredSeedPassword(user.passwordEnv);
 
     let userId = existingUser?.id;
@@ -194,7 +232,7 @@ async function seedUsers() {
       const { data, error } = await supabase.auth.admin.updateUserById(
         existingUser.id,
         {
-          email: user.email,
+          email: normalizedEmail,
           email_confirm: true,
           password,
           user_metadata: {
@@ -211,7 +249,7 @@ async function seedUsers() {
       userId = data.user.id;
     } else {
       const { data, error } = await supabase.auth.admin.createUser({
-        email: user.email,
+        email: normalizedEmail,
         email_confirm: true,
         password,
         user_metadata: {
@@ -267,12 +305,13 @@ async function main() {
   await seedRooms();
   await seedUsers();
 
-  console.log("Seed concluído.");
+  console.log("Seed concluido.");
+  console.log("Ambiente:", activeEnvLabel);
   console.log(
-    "Usuários gerenciados:",
+    "Usuarios gerenciados:",
     users.map((user) => `${user.email} (${user.full_name})`).join(", "),
   );
-  console.log("Senhas: configuradas por variáveis de ambiente individuais.");
+  console.log("Senhas: configuradas por variaveis de ambiente individuais.");
 }
 
 main().catch((error) => {

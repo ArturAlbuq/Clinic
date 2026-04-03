@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import type { RealtimeStatus, RoomSlug } from "@/lib/constants";
 import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import type { QueueDateRange } from "@/lib/queue";
-import { getTodayBounds } from "@/lib/queue";
+import {
+  getTodayBounds,
+  normalizeAttendanceRecord,
+  normalizeQueueItemRecord,
+} from "@/lib/queue";
 
 async function reloadAttendances(range?: QueueDateRange) {
   const { startIso, endIso } = range ?? getTodayBounds();
@@ -49,6 +54,94 @@ async function reloadQueueItems(roomSlug?: RoomSlug, range?: QueueDateRange) {
   return payload.queueItems ?? [];
 }
 
+function areRecordsEqual<T extends Record<string, unknown>>(left: T, right: T) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => left[key] === right[key]);
+}
+
+function upsertAttendanceRecord(
+  currentAttendances: AttendanceRecord[],
+  record: AttendanceRecord,
+) {
+  const currentIndex = currentAttendances.findIndex(
+    (attendance) => attendance.id === record.id,
+  );
+
+  if (currentIndex === -1) {
+    return [record, ...currentAttendances];
+  }
+
+  if (areRecordsEqual(currentAttendances[currentIndex], record)) {
+    return currentAttendances;
+  }
+
+  const nextAttendances = [...currentAttendances];
+  nextAttendances[currentIndex] = record;
+  return nextAttendances;
+}
+
+function removeAttendanceRecord(
+  currentAttendances: AttendanceRecord[],
+  attendanceId?: string,
+) {
+  if (!attendanceId) {
+    return currentAttendances;
+  }
+
+  const nextAttendances = currentAttendances.filter(
+    (attendance) => attendance.id !== attendanceId,
+  );
+
+  return nextAttendances.length === currentAttendances.length
+    ? currentAttendances
+    : nextAttendances;
+}
+
+function upsertQueueItemRecord(
+  currentQueueItems: QueueItemRecord[],
+  record: QueueItemRecord,
+  roomSlug?: RoomSlug,
+) {
+  if (roomSlug && record.room_slug !== roomSlug) {
+    return removeQueueItemRecord(currentQueueItems, record.id);
+  }
+
+  const currentIndex = currentQueueItems.findIndex((item) => item.id === record.id);
+
+  if (currentIndex === -1) {
+    return [...currentQueueItems, record];
+  }
+
+  if (areRecordsEqual(currentQueueItems[currentIndex], record)) {
+    return currentQueueItems;
+  }
+
+  const nextQueueItems = [...currentQueueItems];
+  nextQueueItems[currentIndex] = record;
+  return nextQueueItems;
+}
+
+function removeQueueItemRecord(
+  currentQueueItems: QueueItemRecord[],
+  queueItemId?: string,
+) {
+  if (!queueItemId) {
+    return currentQueueItems;
+  }
+
+  const nextQueueItems = currentQueueItems.filter((item) => item.id !== queueItemId);
+
+  return nextQueueItems.length === currentQueueItems.length
+    ? currentQueueItems
+    : nextQueueItems;
+}
+
 export function useRealtimeClinicData(options: {
   initialAttendances: AttendanceRecord[];
   initialQueueItems: QueueItemRecord[];
@@ -61,6 +154,7 @@ export function useRealtimeClinicData(options: {
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>("conectando");
   const [realtimeError, setRealtimeError] = useState("");
   const rangeKey = range ? `${range.startIso}:${range.endIso}` : "today";
+  const rangeRef = useRef(range);
 
   useEffect(() => {
     setAttendances(initialAttendances);
@@ -69,6 +163,10 @@ export function useRealtimeClinicData(options: {
   useEffect(() => {
     setQueueItems(initialQueueItems);
   }, [initialQueueItems]);
+
+  useEffect(() => {
+    rangeRef.current = range;
+  }, [rangeKey, range]);
 
   useEffect(() => {
     const supabase = getBrowserSupabaseClient();
@@ -84,8 +182,8 @@ export function useRealtimeClinicData(options: {
     async function refreshAll() {
       try {
         const [nextAttendances, nextQueueItems] = await Promise.all([
-          reloadAttendances(range),
-          reloadQueueItems(roomSlug, range),
+          reloadAttendances(rangeRef.current),
+          reloadQueueItems(roomSlug, rangeRef.current),
         ]);
 
         if (!isActive) {
@@ -117,6 +215,7 @@ export function useRealtimeClinicData(options: {
       if (status === "SUBSCRIBED") {
         setRealtimeStatus("conectado");
         setRealtimeError("");
+        void refreshAll();
         return;
       }
 
@@ -141,8 +240,33 @@ export function useRealtimeClinicData(options: {
           schema: "public",
           table: "attendances",
         },
-        () => {
-          void refreshAll();
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          if (!isActive) {
+            return;
+          }
+
+          if (payload.eventType === "DELETE") {
+            setAttendances((currentAttendances) =>
+              removeAttendanceRecord(
+                currentAttendances,
+                String(payload.old.id ?? ""),
+              ),
+            );
+            return;
+          }
+
+          if (!payload.new.id) {
+            void refreshAll();
+            return;
+          }
+
+          const nextAttendance = normalizeAttendanceRecord(
+            payload.new as unknown as AttendanceRecord,
+          );
+
+          setAttendances((currentAttendances) =>
+            upsertAttendanceRecord(currentAttendances, nextAttendance),
+          );
         },
       )
       .subscribe(handleChannelStatus);
@@ -153,11 +277,34 @@ export function useRealtimeClinicData(options: {
         "postgres_changes",
         {
           event: "*",
+          ...(roomSlug ? { filter: `room_slug=eq.${roomSlug}` } : {}),
           schema: "public",
           table: "queue_items",
         },
-        () => {
-          void refreshAll();
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          if (!isActive) {
+            return;
+          }
+
+          if (payload.eventType === "DELETE") {
+            setQueueItems((currentQueueItems) =>
+              removeQueueItemRecord(currentQueueItems, String(payload.old.id ?? "")),
+            );
+            return;
+          }
+
+          if (!payload.new.id) {
+            void refreshAll();
+            return;
+          }
+
+          const nextQueueItem = normalizeQueueItemRecord(
+            payload.new as unknown as QueueItemRecord,
+          );
+
+          setQueueItems((currentQueueItems) =>
+            upsertQueueItemRecord(currentQueueItems, nextQueueItem, roomSlug),
+          );
         },
       )
       .subscribe(handleChannelStatus);
@@ -168,7 +315,7 @@ export function useRealtimeClinicData(options: {
       void supabase.removeChannel(attendanceChannel);
       void supabase.removeChannel(queueChannel);
     };
-  }, [range, rangeKey, roomSlug]);
+  }, [rangeKey, roomSlug]);
 
   return {
     attendances,

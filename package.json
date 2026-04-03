@@ -10,8 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/**/*.test.ts",
     "seed": "node scripts/seed.mjs",
-    "db:push": "supabase db push",
-    "db:reset": "supabase db reset"
+    "seed:staging": "node scripts/seed.mjs --env-file .env.staging",
+    "db:push": "npx supabase db push --local",
+    "db:push:staging": "npx supabase db push --linked --yes",
+    "db:reset": "npx supabase db reset --local"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
