@@ -5,6 +5,8 @@ import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
 import { normalizeAttendanceRecord, normalizeQueueItemRecord } from "@/lib/queue";
 import { logServerError } from "@/lib/server-error";
 
+export const runtime = "nodejs";
+
 type CancelAttendanceBody = {
   managerPassword?: string;
   reason?: string;
@@ -145,7 +147,10 @@ export async function POST(
   } catch (error) {
     logServerError("cancel_attendance.load_approval_password", error);
     return NextResponse.json(
-      { error: "Nao foi possivel validar a autorizacao da gerencia." },
+      {
+        error:
+          "Senha de autorizacao nao configurada no servidor. Defina MANAGER_APPROVAL_PASSWORD no ambiente de producao.",
+      },
       { status: 503 },
     );
   }
