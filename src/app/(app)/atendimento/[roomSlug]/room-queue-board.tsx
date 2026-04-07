@@ -137,15 +137,15 @@ export function RoomQueueBoard({
     setCancelError("");
 
     const reason = cancelReason.trim();
-    const managerPassword = cancelPassword.trim();
+    const password = cancelPassword.trim();
 
     if (reason.length < 3) {
       setCancelError("Informe o motivo do cancelamento.");
       return;
     }
 
-    if (!managerPassword) {
-      setCancelError("Informe a senha da gerencia.");
+    if (!password) {
+      setCancelError("Informe a senha de cancelamento.");
       return;
     }
 
@@ -160,7 +160,7 @@ export function RoomQueueBoard({
         },
         credentials: "same-origin",
         body: JSON.stringify({
-          managerPassword,
+          password,
           reason,
         }),
       },
@@ -252,7 +252,7 @@ export function RoomQueueBoard({
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
               Chame o proximo paciente, inicie o exame, conclua a etapa e, se
-              necessario, cancele o requerimento inteiro com a senha predefinida.
+              necessario, cancele o requerimento inteiro com a senha de cancelamento.
             </p>
           </div>
 
@@ -413,8 +413,7 @@ export function RoomQueueBoard({
                       Cancelar o requerimento inteiro do paciente
                     </p>
                     <p className="mt-2 text-sm text-rose-700">
-                      O cancelamento tira todas as etapas abertas do fluxo e exige
-                      a senha predefinida de autorizacao.
+                      Informe o motivo e a senha de cancelamento para confirmar.
                     </p>
 
                     <div className="mt-4 grid gap-4">
@@ -433,14 +432,14 @@ export function RoomQueueBoard({
 
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold text-slate-700">
-                          Senha de autorizacao
+                          Senha de cancelamento
                         </span>
                         <input
                           type="password"
                           value={cancelPassword}
                           onChange={(event) => setCancelPassword(event.target.value)}
                           className="w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
-                          placeholder="Senha de autorizacao"
+                          placeholder="Digite a senha de cancelamento"
                         />
                       </label>
 

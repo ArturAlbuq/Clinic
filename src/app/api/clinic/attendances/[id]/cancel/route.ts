@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
@@ -8,7 +7,7 @@ import { logServerError } from "@/lib/server-error";
 export const runtime = "nodejs";
 
 type CancelAttendanceBody = {
-  managerPassword?: string;
+  password?: string;
   reason?: string;
 };
 
@@ -75,31 +74,14 @@ function mapCancelAttendanceError(message?: string | null) {
   };
 }
 
+const CANCELLATION_PASSWORD = "cancel@opi123";
+
 async function parseBody(request: Request) {
   try {
     return (await request.json()) as CancelAttendanceBody;
   } catch {
     return null;
   }
-}
-
-function getManagerApprovalPassword() {
-  const managerApprovalPassword = process.env.MANAGER_APPROVAL_PASSWORD?.trim();
-
-  if (!managerApprovalPassword) {
-    throw new Error(
-      "A variavel MANAGER_APPROVAL_PASSWORD e obrigatoria para cancelamentos.",
-    );
-  }
-
-  return managerApprovalPassword;
-}
-
-function secretsMatch(input: string, expected: string) {
-  const inputHash = createHash("sha256").update(input).digest();
-  const expectedHash = createHash("sha256").update(expected).digest();
-
-  return timingSafeEqual(inputHash, expectedHash);
 }
 
 export async function POST(
@@ -124,7 +106,7 @@ export async function POST(
   }
 
   const reason = body.reason?.trim() ?? "";
-  const managerPassword = body.managerPassword?.trim() ?? "";
+  const password = body.password?.trim() ?? "";
 
   if (reason.length < 3) {
     return NextResponse.json(
@@ -133,31 +115,16 @@ export async function POST(
     );
   }
 
-  if (!managerPassword) {
+  if (!password) {
     return NextResponse.json(
-      { error: "Informe a senha da gerencia." },
+      { error: "Informe a senha de cancelamento." },
       { status: 400 },
     );
   }
 
-  let expectedPassword: string;
-
-  try {
-    expectedPassword = getManagerApprovalPassword();
-  } catch (error) {
-    logServerError("cancel_attendance.load_approval_password", error);
+  if (password !== CANCELLATION_PASSWORD) {
     return NextResponse.json(
-      {
-        error:
-          "Senha de autorizacao nao configurada no servidor. Defina MANAGER_APPROVAL_PASSWORD no ambiente de producao.",
-      },
-      { status: 503 },
-    );
-  }
-
-  if (!secretsMatch(managerPassword, expectedPassword)) {
-    return NextResponse.json(
-      { error: "Credenciais da gerencia invalidas." },
+      { error: "Senha de cancelamento invalida." },
       { status: 403 },
     );
   }
