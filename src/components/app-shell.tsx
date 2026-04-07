@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AppNav } from "@/components/app-nav";
 import { SignOutButton } from "@/components/sign-out-button";
+import { getBuildInfo } from "@/lib/build-info";
 import { ROLE_LABELS, ROLE_NAVIGATION } from "@/lib/constants";
 import type { ProfileRecord } from "@/lib/database.types";
 
@@ -10,6 +11,8 @@ type AppShellProps = {
 };
 
 export function AppShell({ profile, children }: AppShellProps) {
+  const build = getBuildInfo();
+
   return (
     <div className="app-grid min-h-screen">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
@@ -23,9 +26,16 @@ export function AppShell({ profile, children }: AppShellProps) {
                 <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
                   Fila digital em tempo real
                 </h1>
-                <span className="inline-flex w-fit rounded-full bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-800">
-                  {ROLE_LABELS[profile.role]}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex w-fit rounded-full bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-800">
+                    {ROLE_LABELS[profile.role]}
+                  </span>
+                  <span className="inline-flex w-fit rounded-full border border-slate-200 bg-white/80 px-3 py-1 font-mono text-xs text-slate-600">
+                    {build.appEnv}
+                    {build.shortCommitSha ? ` · ${build.shortCommitSha}` : ""}
+                    {` · v${build.version}`}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex flex-col gap-3 lg:items-end">
