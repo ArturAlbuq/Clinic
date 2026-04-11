@@ -27,6 +27,7 @@ export type AttendancePriority =
   | "oitenta_mais";
 export type AttendanceOverallStatus =
   | "aguardando"
+  | "pendente_retorno"
   | "em_andamento"
   | "finalizado"
   | "cancelado";
@@ -137,40 +138,61 @@ export interface Database {
         Row: {
           id: string;
           patient_name: string;
+          patient_registration_number: string | null;
           priority: AttendancePriority;
           notes: string | null;
           created_at: string;
           created_by: string;
+          return_pending_at: string | null;
+          return_pending_by: string | null;
+          return_pending_reason: string | null;
           canceled_at: string | null;
           canceled_by: string | null;
           cancellation_reason: string | null;
           cancellation_authorized_by: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          deletion_reason: string | null;
           legacy_single_queue_item_id: string | null;
         };
         Insert: {
           id?: string;
           patient_name: string;
+          patient_registration_number?: string | null;
           priority?: AttendancePriority;
           notes?: string | null;
           created_at?: string;
           created_by: string;
+          return_pending_at?: string | null;
+          return_pending_by?: string | null;
+          return_pending_reason?: string | null;
           canceled_at?: string | null;
           canceled_by?: string | null;
           cancellation_reason?: string | null;
           cancellation_authorized_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          deletion_reason?: string | null;
           legacy_single_queue_item_id?: string | null;
         };
         Update: {
           id?: string;
           patient_name?: string;
+          patient_registration_number?: string | null;
           priority?: AttendancePriority;
           notes?: string | null;
           created_at?: string;
           created_by?: string;
+          return_pending_at?: string | null;
+          return_pending_by?: string | null;
+          return_pending_reason?: string | null;
           canceled_at?: string | null;
           canceled_by?: string | null;
           cancellation_reason?: string | null;
           cancellation_authorized_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          deletion_reason?: string | null;
           legacy_single_queue_item_id?: string | null;
         };
         Relationships: [];
@@ -194,6 +216,16 @@ export interface Database {
           finished_at: string | null;
           finished_by: string | null;
           canceled_at: string | null;
+          canceled_by: string | null;
+          cancellation_reason: string | null;
+          cancellation_authorized_by: string | null;
+          return_pending_at: string | null;
+          return_pending_by: string | null;
+          return_pending_reason: string | null;
+          reactivated_at: string | null;
+          reactivated_by: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -215,6 +247,16 @@ export interface Database {
           finished_at?: string | null;
           finished_by?: string | null;
           canceled_at?: string | null;
+          canceled_by?: string | null;
+          cancellation_reason?: string | null;
+          cancellation_authorized_by?: string | null;
+          return_pending_at?: string | null;
+          return_pending_by?: string | null;
+          return_pending_reason?: string | null;
+          reactivated_at?: string | null;
+          reactivated_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -236,6 +278,16 @@ export interface Database {
           finished_at?: string | null;
           finished_by?: string | null;
           canceled_at?: string | null;
+          canceled_by?: string | null;
+          cancellation_reason?: string | null;
+          cancellation_authorized_by?: string | null;
+          return_pending_at?: string | null;
+          return_pending_by?: string | null;
+          return_pending_reason?: string | null;
+          reactivated_at?: string | null;
+          reactivated_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -244,12 +296,21 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      cancel_queue_item: {
+        Args: {
+          p_authorized_by?: string | null;
+          p_queue_item_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       create_attendance_with_queue_items: {
         Args: {
           p_exam_types: ExamType[];
           p_exam_quantities?: Json;
           p_notes: string | null;
           p_patient_name: string;
+          p_patient_registration_number?: string | null;
           p_priority: AttendancePriority;
         };
         Returns: Json;
@@ -259,6 +320,39 @@ export interface Database {
           p_attendance_id: string;
           p_authorized_by?: string | null;
           p_reason: string;
+        };
+        Returns: Json;
+      };
+      delete_attendance: {
+        Args: {
+          p_attendance_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_attendance_return_pending: {
+        Args: {
+          p_attendance_id: string;
+          p_is_pending: boolean;
+          p_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      set_queue_item_return_pending: {
+        Args: {
+          p_is_pending: boolean;
+          p_queue_item_id: string;
+          p_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      update_attendance_registration: {
+        Args: {
+          p_attendance_id: string;
+          p_exam_quantities?: Json;
+          p_notes: string | null;
+          p_patient_name: string;
+          p_patient_registration_number?: string | null;
         };
         Returns: Json;
       };

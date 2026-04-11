@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { AttendanceTimeline } from "@/components/attendance-timeline";
+import { DayFilterControls } from "@/components/day-filter-controls";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityBadge } from "@/components/priority-badge";
 import { RealtimeStatusBadge } from "@/components/realtime-status";
+import { StatusBadge } from "@/components/status-badge";
 import {
   ATTENDANCE_STATUS_LABELS,
   EXAM_LABELS,
@@ -22,18 +24,29 @@ import type {
   ExamType,
   QueueItemRecord,
 } from "@/lib/database.types";
-import { formatClock, formatDateTime } from "@/lib/date";
+import {
+  formatClock,
+  formatDate,
+  formatDateInputValue,
+  formatDateTime,
+} from "@/lib/date";
+import { readJsonResponse } from "@/lib/fetch-json";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import {
   getAttendanceOverallStatus,
   groupAttendancesWithQueueItems,
+  isQueueItemReturnPending,
+  sortAttendanceQueueItemsByFlow,
   sortAttendancesByPriorityAndCreatedAt,
+  type QueueDateRange,
 } from "@/lib/queue";
 
 type ReceptionDashboardProps = {
   initialAttendances: AttendanceRecord[];
   initialItems: QueueItemRecord[];
+  range: QueueDateRange;
   rooms: ExamRoomRecord[];
+  selectedDate: string;
 };
 
 type StatusFilter = AttendanceOverallStatus | "todos";
@@ -41,6 +54,7 @@ type StatusFilter = AttendanceOverallStatus | "todos";
 const FILTER_LABELS: Record<StatusFilter, string> = {
   todos: "Todos",
   aguardando: "Aguardando",
+  pendente_retorno: "Pendente de retorno",
   em_andamento: "Em andamento",
   finalizado: "Finalizado",
   cancelado: "Cancelado",
@@ -55,7 +69,9 @@ const PRIORITY_OPTIONS: AttendancePriority[] = [
 export function ReceptionDashboard({
   initialAttendances,
   initialItems,
+  range,
   rooms,
+  selectedDate,
 }: ReceptionDashboardProps) {
   const {
     attendances,
@@ -65,10 +81,14 @@ export function ReceptionDashboard({
     setAttendances,
     setQueueItems,
   } = useRealtimeClinicData({
+    includePendingReturns: true,
     initialAttendances,
     initialQueueItems: initialItems,
+    range,
   });
+  const isToday = selectedDate === formatDateInputValue(new Date());
   const [patientName, setPatientName] = useState("");
+  const [patientRegistrationNumber, setPatientRegistrationNumber] = useState("");
   const [selectedExams, setSelectedExams] = useState<ExamType[]>([]);
   const [examQuantities, setExamQuantities] = useState<
     Partial<Record<ExamType, number>>
@@ -174,6 +194,7 @@ export function ReceptionDashboard({
         examQuantities,
         notes,
         patientName,
+        patientRegistrationNumber,
         priority,
         selectedExams,
       }),
@@ -186,7 +207,7 @@ export function ReceptionDashboard({
     };
 
     if (!response.ok || !payload.attendance) {
-      setFormError(payload.error || "Não foi possível salvar o atendimento.");
+      setFormError(payload.error || "Nao foi possivel salvar o atendimento.");
       setIsSubmitting(false);
       return;
     }
@@ -197,12 +218,37 @@ export function ReceptionDashboard({
       ...((payload.queueItems ?? []) as QueueItemRecord[]),
     ]);
     setPatientName("");
+    setPatientRegistrationNumber("");
     setSelectedExams([]);
     setExamQuantities({});
     setPriority("normal");
     setNotes("");
     setFormSuccess("Atendimento enviado para os exames selecionados.");
     setIsSubmitting(false);
+  }
+
+  function applyQueueItemMutation(
+    updatedAttendance: AttendanceRecord,
+    updatedItem: QueueItemRecord,
+    updatedQueueItems: QueueItemRecord[] = [],
+  ) {
+    setAttendances((currentAttendances) =>
+      currentAttendances.map((attendance) =>
+        attendance.id === updatedAttendance.id ? updatedAttendance : attendance,
+      ),
+    );
+    const queueItemMap = new Map(
+      (updatedQueueItems.length ? updatedQueueItems : [updatedItem]).map((queueItem) => [
+        queueItem.id,
+        queueItem,
+      ]),
+    );
+
+    setQueueItems((currentItems) =>
+      currentItems.map(
+        (currentItem) => queueItemMap.get(currentItem.id) ?? currentItem,
+      ),
+    );
   }
 
   return (
@@ -212,50 +258,69 @@ export function ReceptionDashboard({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
-                Recepção
+                Recepcao
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                Cadastro rápido por exame
+                Cadastro rapido por exame
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-                A recepção escolhe os exames, informa a quantidade quando fizer
-                sentido e o sistema direciona cada etapa para a sala correta.
+                {isToday
+                  ? "A recepcao escolhe os exames, informa a quantidade quando fizer sentido e o sistema direciona cada etapa para a sala correta."
+                  : `Consulta dos registros de ${formatDate(selectedDate)}. O cadastro rapido fica liberado apenas no dia atual.`}
               </p>
             </div>
             <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
           </div>
 
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">
-                Nome do paciente
-              </span>
-              <input
-                type="text"
-                required
-                minLength={2}
-                value={patientName}
-                onChange={(event) => setPatientName(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                placeholder="Ex.: Maria Aparecida"
-              />
-            </label>
+          <div className="mt-6">
+            <DayFilterControls
+              historyMessage="Modo consulta ativo. Para cadastrar novos pacientes, volte para Hoje."
+              selectedDate={selectedDate}
+            />
+          </div>
 
-            <div>
-              <span className="mb-2 block text-sm font-semibold text-slate-700">
-                Exames
-              </span>
-              <div className="grid gap-4">
-                {rooms.map((room) => {
-                  return (
+          {isToday ? (
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  Nome do paciente
+                </span>
+                <input
+                  type="text"
+                  required
+                  minLength={2}
+                  value={patientName}
+                  onChange={(event) => setPatientName(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                  placeholder="Ex.: Maria Aparecida"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  Nº do cadastro
+                </span>
+                <input
+                  type="text"
+                  value={patientRegistrationNumber}
+                  onChange={(event) => setPatientRegistrationNumber(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                  placeholder="Opcional. Ex.: 548921"
+                />
+              </label>
+
+              <div>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  Exames
+                </span>
+                <div className="grid gap-4">
+                  {rooms.map((room) => (
                     <div
                       key={room.slug}
                       className="rounded-[24px] border border-slate-200 bg-white px-4 py-4"
                     >
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {room.name}
-                        </p>
+                        <p className="text-sm font-semibold text-slate-900">{room.name}</p>
                         <p className="mt-1 text-xs text-slate-600">
                           Selecione os exames que entram nesta sala.
                         </p>
@@ -303,10 +368,7 @@ export function ReceptionDashboard({
                                           max={99}
                                           value={quantity}
                                           onChange={(event) =>
-                                            updateExamQuantity(
-                                              examType,
-                                              event.target.value,
-                                            )
+                                            updateExamQuantity(examType, event.target.value)
                                           }
                                           className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
                                         />
@@ -320,63 +382,67 @@ export function ReceptionDashboard({
                         )}
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">
-                Prioridade
-              </span>
-              <select
-                value={priority}
-                onChange={(event) =>
-                  setPriority(event.target.value as AttendancePriority)
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  Prioridade
+                </span>
+                <select
+                  value={priority}
+                  onChange={(event) =>
+                    setPriority(event.target.value as AttendancePriority)
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                >
+                  {PRIORITY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {PRIORITY_LABELS[option]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  Observacao
+                </span>
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  rows={4}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                  placeholder="Opcional. Ex.: encaixe, retorno, prioridade clinica."
+                />
+              </label>
+
+              {formError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {formError}
+                </div>
+              ) : null}
+
+              {formSuccess ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                  {formSuccess}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-2xl bg-slate-950 px-4 py-3.5 text-base font-semibold text-white hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {PRIORITY_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {PRIORITY_LABELS[option]}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">
-                Observação
-              </span>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={4}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                placeholder="Opcional. Ex.: encaixe, retorno, prioridade clínica."
-              />
-            </label>
-
-            {formError ? (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {formError}
-              </div>
-            ) : null}
-
-            {formSuccess ? (
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                {formSuccess}
-              </div>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-2xl bg-slate-950 px-4 py-3.5 text-base font-semibold text-white hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Salvando..." : "Salvar atendimento"}
-            </button>
-          </form>
+                {isSubmitting ? "Salvando..." : "Salvar atendimento"}
+              </button>
+            </form>
+          ) : (
+            <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50/70 px-5 py-5 text-sm text-amber-900">
+              Os cadastros ficam bloqueados fora do dia atual para evitar lancamentos operacionais no recorte errado.
+            </div>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -395,7 +461,7 @@ export function ReceptionDashboard({
           <MetricCard
             label="Finalizados"
             value={String(totalFinished)}
-            helper="Atendimentos com todas as etapas concluídas."
+            helper="Atendimentos com todas as etapas concluidas."
           />
           <MetricCard
             label="Cancelados"
@@ -409,11 +475,14 @@ export function ReceptionDashboard({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Lista do dia
+              Lista operacional
             </p>
             <h3 className="mt-2 text-2xl font-semibold text-slate-950">
-              Visão geral da recepção
+              Visao geral da recepcao
             </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              {isToday ? "Recorte atual: hoje." : `Recorte atual: ${formatDate(selectedDate)}.`}
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -441,14 +510,19 @@ export function ReceptionDashboard({
         {filteredAttendances.length ? (
           <div className="mt-6 space-y-3">
             {filteredAttendances.map((attendance) => (
-              <AttendanceRow key={attendance.id} attendance={attendance} />
+              <AttendanceRow
+                key={attendance.id}
+                attendance={attendance}
+                isToday={isToday}
+                onQueueItemMutation={applyQueueItemMutation}
+              />
             ))}
           </div>
         ) : (
           <div className="mt-6">
             <EmptyState
               title="Nenhum atendimento nesse filtro"
-              description="Assim que a recepção cadastrar um paciente, o atendimento aparece aqui com os exames direcionados automaticamente."
+              description="Ajuste a data ou o filtro para revisar outro conjunto de registros."
             />
           </div>
         )}
@@ -457,7 +531,19 @@ export function ReceptionDashboard({
   );
 }
 
-function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems }) {
+function AttendanceRow({
+  attendance,
+  isToday,
+  onQueueItemMutation,
+}: {
+  attendance: AttendanceWithQueueItems;
+  isToday: boolean;
+  onQueueItemMutation: (
+    updatedAttendance: AttendanceRecord,
+    updatedItem: QueueItemRecord,
+    updatedQueueItems?: QueueItemRecord[],
+  ) => void;
+}) {
   const overallStatus = getAttendanceOverallStatus(attendance, attendance.queueItems);
   const completedSteps = attendance.queueItems.filter(
     (item) => item.status === "finalizado",
@@ -466,6 +552,11 @@ function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems })
     (total, item) => total + item.requested_quantity,
     0,
   );
+  const actionableItems = attendance.canceled_at
+    ? []
+    : sortAttendanceQueueItemsByFlow(attendance.queueItems).filter(
+        (item) => item.status !== "finalizado" && item.status !== "cancelado",
+      );
 
   return (
     <div className="rounded-[24px] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_18px_32px_rgba(15,23,42,0.04)]">
@@ -479,8 +570,13 @@ function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems })
             <AttendanceOverallBadge status={overallStatus} />
           </div>
           <p className="mt-1 text-sm text-slate-600">
-            {attendance.notes || "Sem observação"}
+            {attendance.notes || "Sem observacao"}
           </p>
+          {attendance.patient_registration_number ? (
+            <p className="mt-2 text-sm font-medium text-cyan-800">
+              Cadastro {attendance.patient_registration_number}
+            </p>
+          ) : null}
           {attendance.cancellation_reason ? (
             <p className="mt-2 text-sm font-medium text-rose-700">
               Motivo do cancelamento: {attendance.cancellation_reason}
@@ -495,8 +591,7 @@ function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems })
             {formatClock(attendance.created_at)}
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            {requestedQuantity} exame
-            {requestedQuantity === 1 ? "" : "s"} solicitados
+            {requestedQuantity} exame{requestedQuantity === 1 ? "" : "s"} solicitados
           </p>
         </div>
         <div>
@@ -504,7 +599,7 @@ function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems })
             Andamento
           </p>
           <p className="mt-1 text-sm text-slate-700">
-            {completedSteps} de {attendance.queueItems.length} etapas concluídas
+            {completedSteps} de {attendance.queueItems.length} etapas concluidas
           </p>
           {attendance.canceled_at ? (
             <p className="mt-2 text-sm text-slate-600">
@@ -516,6 +611,213 @@ function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems })
       <div className="mt-4 border-t border-slate-100 pt-4">
         <AttendanceTimeline items={attendance.queueItems} title="Etapas do atendimento" />
       </div>
+      {actionableItems.length ? (
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Acoes por etapa
+          </p>
+          <div className="mt-3 grid gap-3">
+            {actionableItems.map((item) => (
+              <ReceptionReturnActionCard
+                key={item.id}
+                attendance={attendance}
+                isToday={isToday}
+                item={item}
+                onQueueItemMutation={onQueueItemMutation}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ReceptionReturnActionCard({
+  attendance,
+  isToday,
+  item,
+  onQueueItemMutation,
+}: {
+  attendance: AttendanceWithQueueItems;
+  isToday: boolean;
+  item: QueueItemRecord;
+  onQueueItemMutation: (
+    updatedAttendance: AttendanceRecord,
+    updatedItem: QueueItemRecord,
+    updatedQueueItems?: QueueItemRecord[],
+  ) => void;
+}) {
+  const isReturnPending = isQueueItemReturnPending({ ...item, attendance });
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [returnError, setReturnError] = useState("");
+  const [returnReason, setReturnReason] = useState(
+    item.return_pending_reason ?? attendance.return_pending_reason ?? "",
+  );
+
+  async function submitReturnPending(nextIsPending: boolean) {
+    setReturnError("");
+
+    const normalizedReason = returnReason.trim();
+
+    if (nextIsPending && normalizedReason.length < 3) {
+      setReturnError("Informe o motivo da pendencia de retorno.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const response = await fetch(`/api/clinic/queue-items/${item.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        action: "return-pending",
+        isPending: nextIsPending,
+        reason: normalizedReason || null,
+      }),
+    });
+
+    const payload = (await readJsonResponse<{
+      attendance?: AttendanceRecord;
+      error?: string;
+      queueItem?: QueueItemRecord;
+      queueItems?: QueueItemRecord[];
+    }>(response)) ?? {};
+
+    if (!response.ok || !payload.attendance || !payload.queueItem) {
+      setReturnError(
+        payload.error || "Nao foi possivel atualizar a marcacao de retorno.",
+      );
+      setIsSubmitting(false);
+      return;
+    }
+
+    onQueueItemMutation(
+      payload.attendance as AttendanceRecord,
+      payload.queueItem as QueueItemRecord,
+      (payload.queueItems ?? []) as QueueItemRecord[],
+    );
+    setReturnReason(nextIsPending ? normalizedReason : "");
+    setIsExpanded(false);
+    setIsSubmitting(false);
+  }
+
+  return (
+    <div
+      className={
+        isReturnPending
+          ? "rounded-[22px] border border-fuchsia-200 bg-fuchsia-50/70 px-4 py-4"
+          : "rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-4"
+      }
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-slate-950">
+              {EXAM_LABELS[item.exam_type]}
+            </p>
+            <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+              Qtd. {item.requested_quantity}
+            </span>
+            <StatusBadge status={item.status} />
+            {isReturnPending ? (
+              <span className="inline-flex rounded-full border border-fuchsia-200 bg-white px-3 py-1 text-xs font-semibold text-fuchsia-800">
+                Retorno pendente
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-2 text-sm text-slate-600">
+            {isReturnPending
+              ? item.return_pending_reason ||
+                attendance.return_pending_reason ||
+                "Sem motivo registrado."
+              : "A recepcao pode tirar esta etapa da fila atual quando o paciente precisar retornar depois."}
+          </p>
+        </div>
+
+        {isReturnPending ? (
+          <button
+            type="button"
+            onClick={() => submitReturnPending(false)}
+            disabled={!isToday || isSubmitting}
+            className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {!isToday
+              ? "Disponivel apenas hoje"
+              : isSubmitting
+                ? "Retomando..."
+                : "Retomar etapa"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setReturnError("");
+              setReturnReason(
+                item.return_pending_reason ?? attendance.return_pending_reason ?? "",
+              );
+              setIsExpanded((current) => !current);
+            }}
+            disabled={!isToday}
+            className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm font-semibold text-fuchsia-800 hover:bg-fuchsia-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isToday ? "Marcar pendencia" : "Consulta historica"}
+          </button>
+        )}
+      </div>
+
+      {!isReturnPending && isToday && isExpanded ? (
+        <div className="mt-4 rounded-[20px] border border-fuchsia-200 bg-white px-4 py-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">
+              Motivo da pendencia
+            </span>
+            <textarea
+              rows={3}
+              value={returnReason}
+              onChange={(event) => setReturnReason(event.target.value)}
+              className="w-full rounded-2xl border border-fuchsia-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100"
+              placeholder="Ex.: paciente saiu e volta depois, etapa restante para outro horario."
+            />
+          </label>
+          {returnError ? (
+            <div className="mt-3 rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm text-fuchsia-800">
+              {returnError}
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => submitReturnPending(true)}
+              disabled={isSubmitting}
+              className="rounded-2xl bg-fuchsia-700 px-4 py-3 text-sm font-semibold text-white hover:bg-fuchsia-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? "Salvando..." : "Confirmar pendencia"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsExpanded(false);
+                setReturnError("");
+                setReturnReason("");
+              }}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {isReturnPending && returnError ? (
+        <div className="mt-3 rounded-2xl border border-fuchsia-200 bg-white px-4 py-3 text-sm text-fuchsia-800">
+          {returnError}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -523,6 +825,7 @@ function AttendanceRow({ attendance }: { attendance: AttendanceWithQueueItems })
 function AttendanceOverallBadge({ status }: { status: AttendanceOverallStatus }) {
   const styles = {
     aguardando: "border-amber-300 bg-amber-100 text-amber-950",
+    pendente_retorno: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800",
     em_andamento: "border-sky-200 bg-sky-50 text-sky-800",
     finalizado: "border-emerald-200 bg-emerald-50 text-emerald-800",
     cancelado: "border-rose-200 bg-rose-50 text-rose-700",

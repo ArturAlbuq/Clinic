@@ -140,6 +140,7 @@ export const PRIORITY_LABELS: Record<AttendancePriority, string> = {
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceOverallStatus, string> = {
   aguardando: "Aguardando",
+  pendente_retorno: "Pendente de retorno",
   em_andamento: "Em andamento",
   finalizado: "Finalizado",
   cancelado: "Cancelado",
@@ -192,7 +193,14 @@ export const PRIORITY_ORDER: AttendancePriority[] = [
 
 export const RECEPTION_STATUS_FILTERS: Array<
   AttendanceOverallStatus | "todos"
-> = ["todos", "aguardando", "em_andamento", "finalizado", "cancelado"];
+> = [
+  "todos",
+  "aguardando",
+  "pendente_retorno",
+  "em_andamento",
+  "finalizado",
+  "cancelado",
+];
 
 export function isRoomSlug(value: string): value is RoomSlug {
   return ROOM_ORDER.includes(value as RoomSlug);

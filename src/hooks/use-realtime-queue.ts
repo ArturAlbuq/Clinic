@@ -12,10 +12,22 @@ import {
   normalizeQueueItemRecord,
 } from "@/lib/queue";
 
-async function reloadAttendances(range?: QueueDateRange) {
+async function reloadAttendances(
+  range?: QueueDateRange,
+  includePendingReturns = false,
+) {
   const { startIso, endIso } = range ?? getTodayBounds();
+  const params = new URLSearchParams({
+    endIso,
+    startIso,
+  });
+
+  if (includePendingReturns) {
+    params.set("includePendingReturns", "1");
+  }
+
   const response = await fetch(
-    `/api/clinic/attendances/list?startIso=${encodeURIComponent(startIso)}&endIso=${encodeURIComponent(endIso)}`,
+    `/api/clinic/attendances/list?${params.toString()}`,
     {
       cache: "no-store",
       credentials: "same-origin",
@@ -30,12 +42,20 @@ async function reloadAttendances(range?: QueueDateRange) {
   return payload.attendances ?? [];
 }
 
-async function reloadQueueItems(roomSlug?: RoomSlug, range?: QueueDateRange) {
+async function reloadQueueItems(
+  roomSlug?: RoomSlug,
+  range?: QueueDateRange,
+  includePendingReturns = false,
+) {
   const { startIso, endIso } = range ?? getTodayBounds();
   const params = new URLSearchParams({
     endIso,
     startIso,
   });
+
+  if (includePendingReturns) {
+    params.set("includePendingReturns", "1");
+  }
 
   if (roomSlug) {
     params.set("roomSlug", roomSlug);
@@ -142,13 +162,28 @@ function removeQueueItemRecord(
     : nextQueueItems;
 }
 
+function isActiveAttendanceRecord(record: AttendanceRecord) {
+  return !record.deleted_at;
+}
+
+function isActiveQueueItemRecord(record: QueueItemRecord) {
+  return !record.deleted_at;
+}
+
 export function useRealtimeClinicData(options: {
+  includePendingReturns?: boolean;
   initialAttendances: AttendanceRecord[];
   initialQueueItems: QueueItemRecord[];
   range?: QueueDateRange;
   roomSlug?: RoomSlug;
 }) {
-  const { initialAttendances, initialQueueItems, range, roomSlug } = options;
+  const {
+    includePendingReturns = false,
+    initialAttendances,
+    initialQueueItems,
+    range,
+    roomSlug,
+  } = options;
   const [attendances, setAttendances] = useState(initialAttendances);
   const [queueItems, setQueueItems] = useState(initialQueueItems);
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>("conectando");
@@ -182,8 +217,8 @@ export function useRealtimeClinicData(options: {
     async function refreshAll() {
       try {
         const [nextAttendances, nextQueueItems] = await Promise.all([
-          reloadAttendances(rangeRef.current),
-          reloadQueueItems(roomSlug, rangeRef.current),
+          reloadAttendances(rangeRef.current, includePendingReturns),
+          reloadQueueItems(roomSlug, rangeRef.current, includePendingReturns),
         ]);
 
         if (!isActive) {
@@ -264,6 +299,13 @@ export function useRealtimeClinicData(options: {
             payload.new as unknown as AttendanceRecord,
           );
 
+          if (!isActiveAttendanceRecord(nextAttendance)) {
+            setAttendances((currentAttendances) =>
+              removeAttendanceRecord(currentAttendances, nextAttendance.id),
+            );
+            return;
+          }
+
           setAttendances((currentAttendances) =>
             upsertAttendanceRecord(currentAttendances, nextAttendance),
           );
@@ -302,6 +344,13 @@ export function useRealtimeClinicData(options: {
             payload.new as unknown as QueueItemRecord,
           );
 
+          if (!isActiveQueueItemRecord(nextQueueItem)) {
+            setQueueItems((currentQueueItems) =>
+              removeQueueItemRecord(currentQueueItems, nextQueueItem.id),
+            );
+            return;
+          }
+
           setQueueItems((currentQueueItems) =>
             upsertQueueItemRecord(currentQueueItems, nextQueueItem, roomSlug),
           );
@@ -315,7 +364,7 @@ export function useRealtimeClinicData(options: {
       void supabase.removeChannel(attendanceChannel);
       void supabase.removeChannel(queueChannel);
     };
-  }, [rangeKey, roomSlug]);
+  }, [includePendingReturns, rangeKey, roomSlug]);
 
   return {
     attendances,

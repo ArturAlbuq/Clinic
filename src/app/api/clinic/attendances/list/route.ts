@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const startIso = searchParams.get("startIso");
   const endIso = searchParams.get("endIso");
+  const includePendingReturns = searchParams.get("includePendingReturns") === "1";
 
   if (!startIso || !endIso) {
     return NextResponse.json(
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
   }
 
   const attendances = await fetchAttendances(supabase, {
+    includePendingReturns,
     range: { endIso, startIso },
   });
 

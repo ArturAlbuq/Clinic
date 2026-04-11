@@ -37,6 +37,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const period = parseQueuePeriod(searchParams.get("period") ?? undefined);
   const selectedDate = parseDateInput(searchParams.get("date") ?? undefined);
+  const patientNameFilter = searchParams.get("patientName")?.trim() ?? "";
+  const normalizedPatientNameFilter =
+    patientNameFilter.toLocaleLowerCase("pt-BR");
   const roomSlugParam = searchParams.get("roomSlug");
   const roomFilter =
     roomSlugParam === "fotografia-escaneamento" ||
@@ -68,7 +71,13 @@ export async function GET(request: Request) {
     attendances,
     queueItems,
     roomFilter,
-  });
+  }).filter((item) =>
+    normalizedPatientNameFilter
+      ? (item.attendance?.patient_name ?? item.patient_name ?? "")
+          .toLocaleLowerCase("pt-BR")
+          .includes(normalizedPatientNameFilter)
+      : true,
+  );
   const groupedByExam = groupRoomReportItemsByExam(roomReportItems, roomFilter);
   const periodLabel = getAdminPeriodLabel(period, selectedDate.toISOString().slice(0, 10));
   const roomLabel =
@@ -122,7 +131,10 @@ export async function GET(request: Request) {
     size: FONT.title,
   });
   drawLine(`Período: ${periodLabel}`, { bold: true });
-  drawLine(`Sala: ${roomLabel}`, { gapAfter: 10 });
+  drawLine(`Sala: ${roomLabel}`, { gapAfter: patientNameFilter ? 4 : 10 });
+  if (patientNameFilter) {
+    drawLine(`Paciente: ${patientNameFilter}`, { gapAfter: 10 });
+  }
 
   drawSectionTitle(drawLine, "Resumo por exame");
   if (groupedByExam.length) {

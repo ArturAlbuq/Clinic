@@ -4,6 +4,9 @@ import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
 import {
   getAttendanceOverallStatus,
   getNextStatus,
+  getQueueStageExecutionMinutes,
+  getQueueStageTotalMinutes,
+  getQueueWaitMinutes,
   getRangeBounds,
   sortRoomQueueItems,
   sortAttendancesByPriorityAndCreatedAt,
@@ -19,11 +22,18 @@ function buildAttendance(
     cancellation_reason: null,
     created_at: "2026-03-25T10:00:00.000Z",
     created_by: "profile-1",
+    deletion_reason: null,
+    deleted_at: null,
+    deleted_by: null,
     id: "attendance-1",
     legacy_single_queue_item_id: null,
     notes: null,
     patient_name: "Paciente Teste",
+    patient_registration_number: null,
     priority: "normal",
+    return_pending_at: null,
+    return_pending_by: null,
+    return_pending_reason: null,
     ...overrides,
   };
 }
@@ -36,8 +46,13 @@ function buildQueueItem(
     called_at: null,
     called_by: null,
     canceled_at: null,
+    canceled_by: null,
+    cancellation_authorized_by: null,
+    cancellation_reason: null,
     created_at: "2026-03-25T10:00:00.000Z",
     created_by: "profile-1",
+    deleted_at: null,
+    deleted_by: null,
     exam_type: "panoramica",
     finished_at: null,
     finished_by: null,
@@ -45,7 +60,12 @@ function buildQueueItem(
     notes: null,
     patient_name: "Paciente Teste",
     requested_quantity: 1,
+    reactivated_at: null,
+    reactivated_by: null,
     room_slug: "panoramico",
+    return_pending_at: null,
+    return_pending_by: null,
+    return_pending_reason: null,
     started_at: null,
     started_by: null,
     status: "aguardando",
@@ -63,28 +83,69 @@ test("getNextStatus respeita o fluxo operacional", () => {
   assert.equal(getNextStatus("cancelado"), null);
 });
 
-test("getAttendanceOverallStatus deriva a situação corretamente", () => {
-  assert.equal(getAttendanceOverallStatus(buildAttendance(), []), "aguardando");
+test("getAttendanceOverallStatus deriva a situacao corretamente", () => {
+  const referenceDate = new Date("2026-03-25T12:00:00.000Z");
+
   assert.equal(
-    getAttendanceOverallStatus(buildAttendance(), [
-      buildQueueItem({ status: "aguardando" }),
-      buildQueueItem({ id: "queue-item-2", status: "aguardando" }),
-    ]),
+    getAttendanceOverallStatus(buildAttendance(), [], referenceDate),
     "aguardando",
   );
   assert.equal(
-    getAttendanceOverallStatus(buildAttendance(), [
-      buildQueueItem({ status: "finalizado" }),
-      buildQueueItem({ id: "queue-item-2", status: "finalizado" }),
-    ]),
+    getAttendanceOverallStatus(
+      buildAttendance(),
+      [
+        buildQueueItem({ status: "aguardando" }),
+        buildQueueItem({ id: "queue-item-2", status: "aguardando" }),
+      ],
+      referenceDate,
+    ),
+    "aguardando",
+  );
+  assert.equal(
+    getAttendanceOverallStatus(
+      buildAttendance({ created_at: "2026-03-24T10:00:00.000Z" }),
+      [
+        buildQueueItem({
+          created_at: "2026-03-24T10:00:00.000Z",
+          status: "aguardando",
+        }),
+      ],
+      referenceDate,
+    ),
+    "pendente_retorno",
+  );
+  assert.equal(
+    getAttendanceOverallStatus(
+      buildAttendance(),
+      [
+        buildQueueItem({ status: "finalizado" }),
+        buildQueueItem({ id: "queue-item-2", status: "finalizado" }),
+      ],
+      referenceDate,
+    ),
     "finalizado",
   );
   assert.equal(
-    getAttendanceOverallStatus(buildAttendance(), [
-      buildQueueItem({ status: "finalizado" }),
-      buildQueueItem({ id: "queue-item-2", status: "em_atendimento" }),
-    ]),
+    getAttendanceOverallStatus(
+      buildAttendance(),
+      [
+        buildQueueItem({ status: "finalizado" }),
+        buildQueueItem({ id: "queue-item-2", status: "em_atendimento" }),
+      ],
+      referenceDate,
+    ),
     "em_andamento",
+  );
+  assert.equal(
+    getAttendanceOverallStatus(
+      buildAttendance(),
+      [
+        buildQueueItem({ status: "finalizado" }),
+        buildQueueItem({ id: "queue-item-2", status: "cancelado" }),
+      ],
+      referenceDate,
+    ),
+    "finalizado",
   );
   assert.equal(
     getAttendanceOverallStatus(
@@ -93,8 +154,22 @@ test("getAttendanceOverallStatus deriva a situação corretamente", () => {
         buildQueueItem({ status: "finalizado" }),
         buildQueueItem({ id: "queue-item-2", status: "cancelado" }),
       ],
+      referenceDate,
     ),
     "cancelado",
+  );
+  assert.equal(
+    getAttendanceOverallStatus(
+      buildAttendance(),
+      [
+        buildQueueItem({
+          reactivated_at: "2026-03-25T11:50:00.000Z",
+          status: "aguardando",
+        }),
+      ],
+      new Date("2026-03-25T12:00:00.000Z"),
+    ),
+    "aguardando",
   );
 });
 
@@ -218,5 +293,35 @@ test("sortRoomQueueItems prioriza fluxo ativo e usa o horario operacional do sta
       "finalizado-antigo",
       "cancelado-recente",
     ],
+  );
+});
+
+test("tempos da etapa congelam enquanto retorno pendente estiver ativo", () => {
+  const pendingAt = "2026-03-25T10:20:00.000Z";
+  const referenceNow = new Date("2026-03-25T10:45:00.000Z").getTime();
+  const attendance = buildAttendance({
+    return_pending_at: pendingAt,
+  });
+  const waitingItem = buildQueueItem({
+    created_at: "2026-03-25T10:00:00.000Z",
+    return_pending_at: pendingAt,
+    status: "aguardando",
+  });
+  const activeItem = buildQueueItem({
+    created_at: "2026-03-25T10:00:00.000Z",
+    id: "queue-item-2",
+    return_pending_at: pendingAt,
+    started_at: "2026-03-25T10:05:00.000Z",
+    status: "em_atendimento",
+  });
+
+  assert.equal(getQueueWaitMinutes({ ...waitingItem, attendance }, referenceNow), 20);
+  assert.equal(
+    getQueueStageExecutionMinutes({ ...activeItem, attendance }, referenceNow),
+    15,
+  );
+  assert.equal(
+    getQueueStageTotalMinutes({ ...activeItem, attendance }, referenceNow),
+    20,
   );
 });

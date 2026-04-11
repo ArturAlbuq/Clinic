@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const startIso = searchParams.get("startIso");
   const endIso = searchParams.get("endIso");
+  const includePendingReturns = searchParams.get("includePendingReturns") === "1";
   const roomSlug = searchParams.get("roomSlug") as RoomSlug | null;
 
   if (!startIso || !endIso) {
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
   }
 
   const queueItems = await fetchQueueItems(supabase, {
+    includePendingReturns,
     range: { endIso, startIso },
     roomSlug: roomSlug ?? undefined,
   });

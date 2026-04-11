@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { AttentionAlertControl } from "@/components/attention-alert-control";
+import { DayFilterControls } from "@/components/day-filter-controls";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityBadge } from "@/components/priority-badge";
@@ -15,35 +16,53 @@ import type {
   ExamRoomRecord,
   QueueItemRecord,
 } from "@/lib/database.types";
-import { formatClock } from "@/lib/date";
+import { formatClock, formatDate, formatDateInputValue } from "@/lib/date";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import {
   combineQueueItemsWithAttendances,
   isQueueItemNew,
+  isQueueItemReturnPending,
   sortRoomQueueItems,
+  type QueueDateRange,
 } from "@/lib/queue";
 
 type AttendanceOverviewProps = {
   initialAttendances: AttendanceRecord[];
   initialItems: QueueItemRecord[];
+  range: QueueDateRange;
   rooms: ExamRoomRecord[];
+  selectedDate: string;
 };
 
 export function AttendanceOverview({
   initialAttendances,
   initialItems,
+  range,
   rooms,
+  selectedDate,
 }: AttendanceOverviewProps) {
+  const isToday = selectedDate === formatDateInputValue(new Date());
   const { attendances, queueItems, realtimeError, realtimeStatus } =
     useRealtimeClinicData({
       initialAttendances,
       initialQueueItems: initialItems,
+      range,
     });
 
-  const enrichedItems = combineQueueItemsWithAttendances(queueItems, attendances);
+  const enrichedItems = useMemo(
+    () => combineQueueItemsWithAttendances(queueItems, attendances),
+    [attendances, queueItems],
+  );
+  const operationalItems = useMemo(
+    () => enrichedItems.filter((item) => !isQueueItemReturnPending(item)),
+    [enrichedItems],
+  );
   const newWaitingItems = useMemo(
-    () => queueItems.filter((item) => isQueueItemNew(item)),
-    [queueItems],
+    () =>
+      isToday
+        ? operationalItems.filter((item) => isQueueItemNew(item))
+        : [],
+    [isToday, operationalItems],
   );
   const { notificationPermission, requestNotificationPermission } = useAttentionAlert({
     alertIds: newWaitingItems.map((item) => item.id),
@@ -58,8 +77,10 @@ export function AttendanceOverview({
         : `${newWaitingItems.length} novos pacientes aguardando`,
   });
 
-  const waitingCount = queueItems.filter((item) => item.status === "aguardando").length;
-  const activeCount = queueItems.filter(
+  const waitingCount = operationalItems.filter(
+    (item) => item.status === "aguardando",
+  ).length;
+  const activeCount = operationalItems.filter(
     (item) => item.status === "chamado" || item.status === "em_atendimento",
   ).length;
   const topPriorityCount = attendances.filter(
@@ -70,7 +91,7 @@ export function AttendanceOverview({
     return (
       <EmptyState
         title="Nenhuma sala liberada"
-        description="Sua conta ainda não foi vinculada a uma sala de atendimento."
+        description="Sua conta ainda nao foi vinculada a uma sala de atendimento."
       />
     );
   }
@@ -85,13 +106,16 @@ export function AttendanceOverview({
                 Atendimento
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                Abra a sua sala e acompanhe a fila operacional.
+                {isToday
+                  ? "Abra a sua sala e acompanhe a fila operacional."
+                  : "Consulte o movimento das salas por dia."}
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                Cada sala vê apenas os próprios pacientes, com prioridade e ordem
-                de chegada preservadas.
+                {isToday
+                  ? "Cada sala ve apenas os proprios pacientes, com prioridade e ordem de chegada preservadas."
+                  : `Recorte atual: ${formatDate(selectedDate)}. Fora de hoje, a navegacao fica em modo consulta para nao misturar historico com operacao ao vivo.`}
               </p>
-          </div>
+            </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <PwaInstallControl />
               <AttentionAlertControl
@@ -100,6 +124,13 @@ export function AttendanceOverview({
               />
               <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
             </div>
+          </div>
+
+          <div className="mt-6">
+            <DayFilterControls
+              historyMessage="Modo consulta ativo. Para operar a fila ao vivo, volte para Hoje."
+              selectedDate={selectedDate}
+            />
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -118,7 +149,7 @@ export function AttendanceOverview({
           <MetricCard
             label="80+"
             value={String(topPriorityCount)}
-            helper="Pacientes com prioridade máxima hoje."
+            helper={isToday ? "Pacientes com prioridade maxima hoje." : "Pacientes 80+ no dia selecionado."}
           />
         </div>
       </section>
@@ -133,14 +164,19 @@ export function AttendanceOverview({
           const roomItems = sortRoomQueueItems(
             enrichedItems.filter((item) => item.room_slug === roomEntry.slug),
           );
+          const visibleRoomItems = roomItems.filter(
+            (item) => !isQueueItemReturnPending(item),
+          );
           const nextItem =
-            roomItems.find((item) => item.status === "aguardando") ?? null;
-          const hasNewPatient = roomItems.some((item) => isQueueItemNew(item));
+            visibleRoomItems.find((item) => item.status === "aguardando") ?? null;
+          const hasNewPatient = isToday
+            ? visibleRoomItems.some((item) => isQueueItemNew(item))
+            : false;
 
           return (
             <Link
               key={roomEntry.slug}
-              href={room.route}
+              href={`${room.route}?date=${selectedDate}`}
               className={
                 hasNewPatient
                   ? "app-panel group rounded-[30px] border-amber-300 bg-gradient-to-br from-amber-50 via-white to-white px-6 py-6 shadow-[0_24px_56px_rgba(245,158,11,0.14)] hover:-translate-y-1 hover:border-amber-400"
@@ -170,7 +206,7 @@ export function AttendanceOverview({
                     Na fila
                   </p>
                   <p className="mt-2 text-3xl font-semibold text-amber-900">
-                    {roomItems.filter((item) => item.status === "aguardando").length}
+                    {visibleRoomItems.filter((item) => item.status === "aguardando").length}
                   </p>
                 </div>
                 <div className="rounded-[22px] border border-emerald-200/80 bg-emerald-50 px-4 py-4">
@@ -179,7 +215,7 @@ export function AttendanceOverview({
                   </p>
                   <p className="mt-2 text-3xl font-semibold text-emerald-900">
                     {
-                      roomItems.filter(
+                      visibleRoomItems.filter(
                         (item) =>
                           item.status === "chamado" ||
                           item.status === "em_atendimento",
@@ -191,7 +227,7 @@ export function AttendanceOverview({
 
               <div className="mt-5 rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Próximo paciente
+                  Proximo paciente
                 </p>
                 {nextItem ? (
                   <div className="mt-2 space-y-2">
@@ -204,10 +240,7 @@ export function AttendanceOverview({
                       ) : null}
                     </div>
                     <p className="text-sm text-slate-600">
-                      desde{" "}
-                      {formatClock(
-                        nextItem.attendance?.created_at ?? nextItem.created_at,
-                      )}
+                      desde {formatClock(nextItem.attendance?.created_at ?? nextItem.created_at)}
                     </p>
                   </div>
                 ) : (
@@ -218,7 +251,7 @@ export function AttendanceOverview({
               </div>
 
               <div className="mt-5 text-sm font-semibold text-cyan-800 group-hover:text-cyan-900">
-                Abrir operação da sala
+                Abrir operacao da sala
               </div>
             </Link>
           );

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AttentionAlertControl } from "@/components/attention-alert-control";
+import { DayFilterControls } from "@/components/day-filter-controls";
 import { EmptyState } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
 import { PwaInstallControl } from "@/components/pwa-install-control";
@@ -15,7 +16,14 @@ import type {
   QueueItemRecord,
   QueueItemWithAttendance,
 } from "@/lib/database.types";
-import { formatClock, formatDateTime, formatMinuteLabel } from "@/lib/date";
+import {
+  formatClock,
+  formatDate,
+  formatDateInputValue,
+  formatDateTime,
+  formatMinuteLabel,
+} from "@/lib/date";
+import { readJsonResponse } from "@/lib/fetch-json";
 import type { RoomSlug } from "@/lib/constants";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import {
@@ -23,26 +31,33 @@ import {
   getNextStatus,
   getNextStatusLabel,
   getQueueWaitMinutes,
+  isQueueItemReturnPending,
   isQueueItemNew,
   sortRoomQueueItems,
+  type QueueDateRange,
 } from "@/lib/queue";
 
 type RoomQueueBoardProps = {
   initialAttendances: AttendanceRecord[];
   initialItems: QueueItemRecord[];
+  range: QueueDateRange;
   room: {
     roomName: string;
     shortName: string;
   };
   roomSlug: RoomSlug;
+  selectedDate: string;
 };
 
 export function RoomQueueBoard({
   initialAttendances,
   initialItems,
+  range,
   room,
   roomSlug,
+  selectedDate,
 }: RoomQueueBoardProps) {
+  const isToday = selectedDate === formatDateInputValue(new Date());
   const {
     attendances,
     queueItems,
@@ -51,18 +66,19 @@ export function RoomQueueBoard({
     setAttendances,
     setQueueItems,
   } = useRealtimeClinicData({
+    includePendingReturns: true,
     initialAttendances,
     initialQueueItems: initialItems,
+    range,
     roomSlug,
   });
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [actionError, setActionError] = useState("");
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
-  const [cancelAttendanceId, setCancelAttendanceId] = useState<string | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelPassword, setCancelPassword] = useState("");
-  const [cancelError, setCancelError] = useState("");
-  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
+  const [pendingReturnItemId, setPendingReturnItemId] = useState<string | null>(null);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnError, setReturnError] = useState("");
+  const [returnMutationItemId, setReturnMutationItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setNowMs(Date.now()));
@@ -87,11 +103,44 @@ export function RoomQueueBoard({
   );
 
   const visibleItems = orderedItems.filter(
-    (item) => item.status !== "cancelado" && !item.attendance?.canceled_at,
+    (item) =>
+      item.status !== "cancelado" &&
+      !item.attendance?.canceled_at &&
+      !isQueueItemReturnPending(item, new Date(nowMs)),
+  );
+  const returnPendingItems = orderedItems.filter(
+    (item) =>
+      item.status !== "cancelado" &&
+      !item.attendance?.canceled_at &&
+      isQueueItemReturnPending(item, new Date(nowMs)),
   );
   const canceledItems = orderedItems.filter(
     (item) => item.status === "cancelado" || Boolean(item.attendance?.canceled_at),
   );
+
+  function applyQueueItemMutation(
+    updatedAttendance: AttendanceRecord,
+    updatedItem: QueueItemRecord,
+    updatedQueueItems: QueueItemRecord[] = [],
+  ) {
+    setAttendances((currentAttendances) =>
+      currentAttendances.map((attendance) =>
+        attendance.id === updatedAttendance.id ? updatedAttendance : attendance,
+      ),
+    );
+    const queueItemMap = new Map(
+      (updatedQueueItems.length ? updatedQueueItems : [updatedItem]).map((queueItem) => [
+        queueItem.id,
+        queueItem,
+      ]),
+    );
+
+    setQueueItems((currentItems) =>
+      currentItems.map(
+        (currentItem) => queueItemMap.get(currentItem.id) ?? currentItem,
+      ),
+    );
+  }
 
   async function advanceStatus(item: QueueItemWithAttendance) {
     const nextStatus = getNextStatus(item.status);
@@ -114,10 +163,10 @@ export function RoomQueueBoard({
       }),
     });
 
-    const payload = (await response.json()) as {
+    const payload = (await readJsonResponse<{
       error?: string;
       queueItem?: QueueItemRecord;
-    };
+    }>(response)) ?? {};
 
     if (!response.ok || !payload.queueItem) {
       setActionError(payload.error || "Nao foi possivel avancar a etapa.");
@@ -133,76 +182,62 @@ export function RoomQueueBoard({
     setPendingItemId(null);
   }
 
-  async function submitCancellation(item: QueueItemWithAttendance) {
-    setCancelError("");
+  async function submitReturnPending(queueItemId: string, nextIsPending: boolean) {
+    setReturnError("");
 
-    const reason = cancelReason.trim();
-    const password = cancelPassword.trim();
+    const normalizedReason = returnReason.trim();
 
-    if (reason.length < 3) {
-      setCancelError("Informe o motivo do cancelamento.");
+    if (nextIsPending && normalizedReason.length < 3) {
+      setReturnError("Informe o motivo da pendencia de retorno.");
       return;
     }
 
-    if (!password) {
-      setCancelError("Informe a senha de cancelamento.");
-      return;
-    }
+    setReturnMutationItemId(queueItemId);
 
-    setPendingCancelId(item.attendance_id);
-
-    const response = await fetch(
-      `/api/clinic/attendances/${item.attendance_id}/cancel`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          password,
-          reason,
-        }),
+    const response = await fetch(`/api/clinic/queue-items/${queueItemId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      credentials: "same-origin",
+      body: JSON.stringify({
+        action: "return-pending",
+        isPending: nextIsPending,
+        reason: normalizedReason || null,
+      }),
+    });
 
-    const payload = (await response.json()) as {
+    const payload = (await readJsonResponse<{
       attendance?: AttendanceRecord;
       error?: string;
+      queueItem?: QueueItemRecord;
       queueItems?: QueueItemRecord[];
-    };
+    }>(response)) ?? {};
 
-    if (!response.ok || !payload.attendance) {
-      setCancelError(payload.error || "Nao foi possivel cancelar o atendimento.");
-      setPendingCancelId(null);
+    if (!response.ok || !payload.attendance || !payload.queueItem) {
+      setReturnError(
+        payload.error || "Nao foi possivel atualizar a marcacao de retorno.",
+      );
+      setReturnMutationItemId(null);
       return;
     }
 
-    const updatedItems = payload.queueItems ?? [];
-
-    setAttendances((currentAttendances) =>
-      currentAttendances.map((attendance) =>
-        attendance.id === item.attendance_id
-          ? (payload.attendance as AttendanceRecord)
-          : attendance,
-      ),
+    applyQueueItemMutation(
+      payload.attendance as AttendanceRecord,
+      payload.queueItem as QueueItemRecord,
+      (payload.queueItems ?? []) as QueueItemRecord[],
     );
-    setQueueItems((currentItems) =>
-      currentItems.map((currentItem) => {
-        const updatedItem = updatedItems.find((entry) => entry.id === currentItem.id);
-        return updatedItem ?? currentItem;
-      }),
-    );
-    setCancelAttendanceId(null);
-    setCancelReason("");
-    setCancelPassword("");
-    setPendingCancelId(null);
+    setPendingReturnItemId(null);
+    setReturnReason("");
+    setReturnMutationItemId(null);
   }
 
   const waitingCount = visibleItems.filter(
     (item) => item.status === "aguardando",
   ).length;
-  const newWaitingItems = visibleItems.filter((item) => isQueueItemNew(item, nowMs));
+  const newWaitingItems = isToday
+    ? visibleItems.filter((item) => isQueueItemNew(item, nowMs))
+    : [];
   const newWaitingCount = newWaitingItems.length;
   const activeCount = visibleItems.filter(
     (item) => item.status === "chamado" || item.status === "em_atendimento",
@@ -239,7 +274,7 @@ export function RoomQueueBoard({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <Link
-              href="/atendimento"
+              href={`/atendimento?date=${selectedDate}`}
               className="text-sm font-semibold text-cyan-800 hover:text-cyan-900"
             >
               Voltar para as salas
@@ -251,8 +286,9 @@ export function RoomQueueBoard({
               {room.roomName}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Chame o proximo paciente, inicie o exame, conclua a etapa e, se
-              necessario, cancele o requerimento inteiro com a senha de cancelamento.
+              {isToday
+                ? "Chame o proximo paciente, inicie o exame, conclua a etapa e marque pendencia de retorno quando precisar tirar o atendimento da fila atual."
+                : `Consulta de ${formatDate(selectedDate)}. Fora de hoje, a sala fica em modo leitura para nao alterar o fluxo operacional vigente.`}
             </p>
           </div>
 
@@ -265,7 +301,7 @@ export function RoomQueueBoard({
               />
               <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
               <div className="rounded-[24px] border border-amber-200/80 bg-amber-50 px-5 py-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
                   Na fila
@@ -282,6 +318,14 @@ export function RoomQueueBoard({
                   {activeCount}
                 </p>
               </div>
+              <div className="rounded-[24px] border border-fuchsia-200/80 bg-fuchsia-50 px-5 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-fuchsia-800">
+                  Retornos
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-fuchsia-900">
+                  {returnPendingItems.length}
+                </p>
+              </div>
               <div className="rounded-[24px] border border-rose-200/80 bg-rose-50 px-5 py-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
                   Cancelados
@@ -293,6 +337,12 @@ export function RoomQueueBoard({
             </div>
           </div>
         </div>
+        <div className="mt-6">
+          <DayFilterControls
+            historyMessage="Modo consulta ativo. Para chamar, concluir ou retomar etapas, volte para Hoje."
+            selectedDate={selectedDate}
+          />
+        </div>
       </section>
 
       {actionError ? (
@@ -301,17 +351,19 @@ export function RoomQueueBoard({
         </div>
       ) : null}
 
+      {returnError ? (
+        <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm text-fuchsia-800">
+          {returnError}
+        </div>
+      ) : null}
+
       {visibleItems.length ? (
         <section className="grid gap-4 xl:grid-cols-2">
           {visibleItems.map((item) => {
             const nextActionLabel = getNextStatusLabel(item.status);
             const referenceNow = nowMs;
-            const waitMinutes = getQueueWaitMinutes(
-              { created_at: item.attendance?.created_at ?? item.created_at },
-              referenceNow,
-            );
+            const waitMinutes = getQueueWaitMinutes(item, referenceNow);
             const isNew = isQueueItemNew(item, referenceNow);
-            const cancellationOpen = cancelAttendanceId === item.attendance_id;
             const containerStyle = STATUS_CONTAINER_STYLES[item.status];
 
             return (
@@ -380,10 +432,14 @@ export function RoomQueueBoard({
                     <button
                       type="button"
                       onClick={() => advanceStatus(item)}
-                      disabled={pendingItemId === item.id}
+                      disabled={!isToday || pendingItemId === item.id}
                       className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {pendingItemId === item.id ? "Atualizando..." : nextActionLabel}
+                      {!isToday
+                        ? "Disponivel apenas hoje"
+                        : pendingItemId === item.id
+                          ? "Atualizando..."
+                          : nextActionLabel}
                     </button>
                   ) : (
                     <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
@@ -395,78 +451,62 @@ export function RoomQueueBoard({
                     <button
                       type="button"
                       onClick={() => {
-                        setCancelError("");
-                        setCancelAttendanceId((current) =>
-                          current === item.attendance_id ? null : item.attendance_id,
+                        setReturnError("");
+                        setPendingReturnItemId((current) =>
+                          current === item.id ? null : item.id,
+                        );
+                        setReturnReason(
+                          item.return_pending_reason ??
+                            item.attendance?.return_pending_reason ??
+                            "",
                         );
                       }}
-                      className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                      disabled={!isToday}
+                      className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm font-semibold text-fuchsia-800 hover:bg-fuchsia-100"
                     >
-                      Cancelar atendimento
+                      {isToday ? "Marcar pendencia de retorno" : "Consulta historica"}
                     </button>
                   ) : null}
                 </div>
 
-                {cancellationOpen ? (
-                  <div className="mt-6 rounded-[24px] border border-rose-200 bg-rose-50/80 px-5 py-5">
-                    <p className="text-sm font-semibold text-rose-900">
-                      Cancelar o requerimento inteiro do paciente
+                {isToday && pendingReturnItemId === item.id ? (
+                  <div className="mt-6 rounded-[24px] border border-fuchsia-200 bg-fuchsia-50/80 px-5 py-5">
+                    <p className="text-sm font-semibold text-fuchsia-900">
+                      Marcar atendimento como pendente de retorno
                     </p>
-                    <p className="mt-2 text-sm text-rose-700">
-                      Informe o motivo e a senha de cancelamento para confirmar.
+                    <p className="mt-2 text-sm text-fuchsia-800">
+                      O atendimento continua aberto, mas sai da fila atual ate o paciente retornar.
                     </p>
-
                     <div className="mt-4 grid gap-4">
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold text-slate-700">
-                          Motivo do cancelamento
+                          Motivo da pendencia
                         </span>
                         <textarea
                           rows={3}
-                          value={cancelReason}
-                          onChange={(event) => setCancelReason(event.target.value)}
-                          className="w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
-                          placeholder="Ex.: pedido cancelado, documentacao incorreta, paciente desistiu."
+                          value={returnReason}
+                          onChange={(event) => setReturnReason(event.target.value)}
+                          className="w-full rounded-2xl border border-fuchsia-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100"
+                          placeholder="Ex.: equipamento indisponivel, paciente remarcado, etapa restante para outro dia."
                         />
                       </label>
-
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-slate-700">
-                          Senha de cancelamento
-                        </span>
-                        <input
-                          type="password"
-                          value={cancelPassword}
-                          onChange={(event) => setCancelPassword(event.target.value)}
-                          className="w-full rounded-2xl border border-rose-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
-                          placeholder="Digite a senha de cancelamento"
-                        />
-                      </label>
-
-                      {cancelError ? (
-                        <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm text-rose-700">
-                          {cancelError}
-                        </div>
-                      ) : null}
-
                       <div className="flex flex-wrap gap-3">
                         <button
                           type="button"
-                          onClick={() => submitCancellation(item)}
-                          disabled={pendingCancelId === item.attendance_id}
-                          className="rounded-2xl bg-rose-700 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => submitReturnPending(item.id, true)}
+                          disabled={returnMutationItemId === item.id}
+                          className="rounded-2xl bg-fuchsia-700 px-4 py-3 text-sm font-semibold text-white hover:bg-fuchsia-800 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {pendingCancelId === item.attendance_id
-                            ? "Cancelando..."
-                            : "Confirmar cancelamento"}
+                          {returnMutationItemId === item.id
+                            ? "Salvando..."
+                            : "Confirmar pendencia"}
                         </button>
                         <button
                           type="button"
                           onClick={() => {
-                            setCancelAttendanceId(null);
-                            setCancelError("");
-                            setCancelPassword("");
-                            setCancelReason("");
+                            setPendingReturnItemId(null);
+                            setReturnError("");
+                            setReturnReason("");
                           }}
                           className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                         >
@@ -486,6 +526,70 @@ export function RoomQueueBoard({
           description="Assim que a recepcao enviar um novo atendimento para esta fila, ele aparece aqui automaticamente."
         />
       )}
+
+      {returnPendingItems.length ? (
+        <section className="app-panel rounded-[30px] px-6 py-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-fuchsia-800">
+                Retornos
+              </p>
+              <h3 className="mt-2 text-2xl font-semibold text-slate-950">
+                Pendentes de retorno nesta sala
+              </h3>
+            </div>
+            <span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-3 py-1 text-sm font-semibold text-fuchsia-800">
+              {returnPendingItems.length} pendente{returnPendingItems.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {returnPendingItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-[24px] border border-fuchsia-200 bg-fuchsia-50/60 px-5 py-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-lg font-semibold text-slate-950">
+                        {item.attendance?.patient_name ?? item.patient_name}
+                      </p>
+                      {item.attendance ? (
+                        <PriorityBadge priority={item.attendance.priority} />
+                      ) : null}
+                      <StatusBadge status={item.status} />
+                      <span className="inline-flex items-center rounded-full border border-fuchsia-200 bg-white px-3 py-1 text-xs font-semibold text-fuchsia-800">
+                        Retorno pendente
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-700">
+                      {item.return_pending_reason ||
+                        item.attendance?.return_pending_reason ||
+                        "Sem motivo registrado."}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Etapa aberta: {EXAM_LABELS[item.exam_type]} • qtd. {item.requested_quantity}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => submitReturnPending(item.id, false)}
+                    disabled={!isToday || returnMutationItemId === item.id}
+                    className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {!isToday
+                      ? "Disponivel apenas hoje"
+                      : returnMutationItemId === item.id
+                      ? "Retomando..."
+                      : "Retomar atendimento"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {canceledItems.length ? (
         <section className="app-panel rounded-[30px] px-6 py-6">
@@ -519,7 +623,9 @@ export function RoomQueueBoard({
                   <StatusBadge status={item.status} />
                 </div>
                 <p className="mt-2 text-sm text-slate-700">
-                  {item.attendance?.cancellation_reason || "Sem motivo informado."}
+                  {item.cancellation_reason ||
+                    item.attendance?.cancellation_reason ||
+                    "Sem motivo informado."}
                 </p>
                 <p className="mt-2 text-sm text-slate-600">
                   Cancelado em{" "}

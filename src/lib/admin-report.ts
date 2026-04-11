@@ -18,6 +18,7 @@ import {
 } from "@/lib/date";
 import {
   combineQueueItemsWithAttendances,
+  isQueueItemReturnPending,
   isQueueItemNew,
   sortRoomQueueItems,
   type QueuePeriod,
@@ -62,19 +63,24 @@ export function buildRoomSummaries(options: {
     const enrichedItems = sortRoomQueueItems(
       combineQueueItemsWithAttendances(roomItems, attendances),
     );
-    const waitingItems = roomItems.filter((item) => item.status === "aguardando");
+    const operationalItems = enrichedItems.filter(
+      (item) => !isQueueItemReturnPending(item, new Date(nowMs)),
+    );
+    const waitingItems = operationalItems.filter(
+      (item) => item.status === "aguardando",
+    );
     const newWaitingCount = waitingItems.filter((item) => isQueueItemNew(item, nowMs))
       .length;
 
     return {
-      activeCount: roomItems.filter(
+      activeCount: operationalItems.filter(
         (item) => item.status === "chamado" || item.status === "em_atendimento",
       ).length,
       finishedCount: roomItems.filter((item) => item.status === "finalizado").length,
       hasNewWaiting: newWaitingCount > 0,
       newWaitingCount,
       nextItem:
-        enrichedItems.find((item) => item.status === "aguardando") ?? null,
+        operationalItems.find((item) => item.status === "aguardando") ?? null,
       room: rooms.find((entry) => entry.slug === roomSlug),
       roomSlug,
       waitingCount: waitingItems.length,
@@ -87,7 +93,7 @@ export function buildAttendantReport(options: {
   profiles: ProfileRecord[];
   queueItems: QueueItemRecord[];
 }) {
-  const { attendances, profiles, queueItems } = options;
+  const { profiles, queueItems } = options;
 
   return profiles
     .filter((profile) => profile.role === "atendimento")
@@ -105,8 +111,10 @@ export function buildAttendantReport(options: {
           item.started_at &&
           (item.finished_at || item.canceled_at),
       );
-      const canceledByAttendant = attendances.filter(
-        (attendance) => attendance.canceled_by === profile.id,
+      const canceledByAttendant = queueItems.filter(
+        (item) =>
+          item.status === "cancelado" &&
+          (item.canceled_by === profile.id || item.updated_by === profile.id),
       ).length;
 
       return {

@@ -7,7 +7,6 @@ import { logServerError } from "@/lib/server-error";
 export const runtime = "nodejs";
 
 type CancelAttendanceBody = {
-  password?: string;
   reason?: string;
 };
 
@@ -74,8 +73,6 @@ function mapCancelAttendanceError(message?: string | null) {
   };
 }
 
-const CANCELLATION_PASSWORD = "cancel@opi123";
-
 async function parseBody(request: Request) {
   try {
     return (await request.json()) as CancelAttendanceBody;
@@ -94,7 +91,7 @@ export async function POST(
     return NextResponse.json({ error: "Origem invalida." }, { status: 403 });
   }
 
-  const { supabase } = await requireRole(["atendimento", "admin"]);
+  const { supabase } = await requireRole("admin");
   const { id } = await context.params;
   const body = await parseBody(request);
 
@@ -106,26 +103,10 @@ export async function POST(
   }
 
   const reason = body.reason?.trim() ?? "";
-  const password = body.password?.trim() ?? "";
-
   if (reason.length < 3) {
     return NextResponse.json(
       { error: "Informe o motivo do cancelamento." },
       { status: 400 },
-    );
-  }
-
-  if (!password) {
-    return NextResponse.json(
-      { error: "Informe a senha de cancelamento." },
-      { status: 400 },
-    );
-  }
-
-  if (password !== CANCELLATION_PASSWORD) {
-    return NextResponse.json(
-      { error: "Senha de cancelamento invalida." },
-      { status: 403 },
     );
   }
 
