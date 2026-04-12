@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 import { getSupabasePublicEnv, isSupabaseConfigured } from "@/lib/env";
 
-const PROTECTED_PREFIXES = ["/recepcao", "/atendimento", "/admin"];
+const PROTECTED_PREFIXES = ["/recepcao", "/atendimento", "/admin", "/gerencia"];
 
 export async function proxy(request: NextRequest) {
   if (!isSupabaseConfigured()) {

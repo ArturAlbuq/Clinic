@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { AppRole, ProfileRecord } from "@/lib/database.types";
 import type { RoomSlug } from "@/lib/constants";
 import { ROLE_HOME } from "@/lib/constants";
+import { resolveEffectiveAppRole } from "@/lib/roles";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type SessionContext = {
@@ -31,8 +32,20 @@ export const getSessionContext = cache(async (): Promise<SessionContext> => {
     .eq("id", user.id)
     .maybeSingle();
 
+  const normalizedProfile = profile
+    ? ({
+        ...(profile as ProfileRecord),
+        role: resolveEffectiveAppRole({
+          appMetadataRole: user.app_metadata?.role,
+          profileRole: (profile as ProfileRecord).role,
+          userEmail: user.email,
+          userMetadataRole: user.user_metadata?.role,
+        }),
+      } satisfies ProfileRecord)
+    : null;
+
   return {
-    profile: (profile as ProfileRecord | null) ?? null,
+    profile: normalizedProfile,
     supabase,
     userId: user.id,
   };

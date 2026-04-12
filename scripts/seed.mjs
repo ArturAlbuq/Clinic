@@ -76,6 +76,54 @@ function normalizeEmail(email) {
   return email.trim().toLowerCase();
 }
 
+function buildAppMetadata(baseMetadata, role) {
+  const provider =
+    typeof baseMetadata?.provider === "string" ? baseMetadata.provider : "email";
+  const providers = Array.isArray(baseMetadata?.providers)
+    ? baseMetadata.providers
+    : [provider];
+
+  return {
+    ...(baseMetadata ?? {}),
+    provider,
+    providers,
+    role,
+  };
+}
+
+async function upsertProfileWithRole(userId, user) {
+  const desiredProfile = {
+    full_name: user.full_name,
+    id: userId,
+    role: user.role,
+  };
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .upsert(desiredProfile);
+
+  if (!profileError) {
+    return;
+  }
+
+  const shouldFallbackToReception =
+    user.role === "gerencia" &&
+    profileError.message?.includes('invalid input value for enum app_role');
+
+  if (!shouldFallbackToReception) {
+    throw profileError;
+  }
+
+  const { error: fallbackProfileError } = await supabase.from("profiles").upsert({
+    ...desiredProfile,
+    role: "recepcao",
+  });
+
+  if (fallbackProfileError) {
+    throw fallbackProfileError;
+  }
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -196,6 +244,13 @@ const users = [
     role: "atendimento",
     room_slugs: allRoomSlugs,
   },
+  {
+    email: "gerencia@clinic.local",
+    full_name: "Gerência",
+    passwordEnv: "SEED_GERENCIA_PASSWORD",
+    role: "gerencia",
+    room_slugs: [],
+  },
 ];
 
 async function seedRooms() {
@@ -233,6 +288,7 @@ async function seedUsers() {
         existingUser.id,
         {
           email: normalizedEmail,
+          app_metadata: buildAppMetadata(existingUser.app_metadata, user.role),
           email_confirm: true,
           password,
           user_metadata: {
@@ -249,6 +305,7 @@ async function seedUsers() {
       userId = data.user.id;
     } else {
       const { data, error } = await supabase.auth.admin.createUser({
+        app_metadata: buildAppMetadata(undefined, user.role),
         email: normalizedEmail,
         email_confirm: true,
         password,
@@ -265,15 +322,7 @@ async function seedUsers() {
       userId = data.user.id;
     }
 
-    const { error: profileError } = await supabase.from("profiles").upsert({
-      full_name: user.full_name,
-      id: userId,
-      role: user.role,
-    });
-
-    if (profileError) {
-      throw profileError;
-    }
+    await upsertProfileWithRole(userId, user);
 
     const { error: deleteAccessError } = await supabase
       .from("profile_room_access")

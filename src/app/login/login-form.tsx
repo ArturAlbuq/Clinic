@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ProfileRecord } from "@/lib/database.types";
 import { ROLE_HOME } from "@/lib/constants";
+import { resolveEffectiveAppRole } from "@/lib/roles";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 type LoginFormProps = {
@@ -71,7 +72,14 @@ export function LoginForm({ serverError }: LoginFormProps) {
     }
 
     const userProfile = profile as ProfileRecord;
-    router.replace(ROLE_HOME[userProfile.role]);
+    const effectiveRole = resolveEffectiveAppRole({
+      appMetadataRole: data.user.app_metadata?.role,
+      profileRole: userProfile.role,
+      userEmail: data.user.email,
+      userMetadataRole: data.user.user_metadata?.role,
+    });
+
+    router.replace(ROLE_HOME[effectiveRole]);
     router.refresh();
     setIsPending(false);
   }
