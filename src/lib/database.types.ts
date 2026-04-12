@@ -6,7 +6,7 @@
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type AppRole = "recepcao" | "atendimento" | "admin";
+export type AppRole = "recepcao" | "atendimento" | "admin" | "gerencia";
 export type ExamType =
   | "fotografia"
   | "escaneamento_intra_oral"

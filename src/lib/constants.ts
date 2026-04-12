@@ -12,7 +12,11 @@ export type RoomSlug =
   | "panoramico"
   | "tomografia";
 
-export type RealtimeStatus = "conectando" | "conectado" | "instavel" | "offline";
+export type RealtimeStatus =
+  | "conectando"
+  | "conectado"
+  | "instavel"
+  | "offline";
 
 export const NEW_ITEM_WINDOW_MINUTES = 3;
 
@@ -77,7 +81,7 @@ export const EXAM_LABELS: Record<ExamType, string> = {
   escaneamento_intra_oral: "Escaneamento intra-oral",
   periapical: "Periapical",
   interproximal: "Interproximal",
-  panoramica: "Panorâmica",
+  panoramica: "Panoramica",
   telerradiografia: "Telerradiografia",
   tomografia: "Tomografia",
 };
@@ -87,7 +91,7 @@ export const EXAM_SHORT_LABELS: Record<ExamType, string> = {
   escaneamento_intra_oral: "Scan intra",
   periapical: "Periapical",
   interproximal: "Interprox.",
-  panoramica: "Panorâmica",
+  panoramica: "Panoramica",
   telerradiografia: "Telerradio",
   tomografia: "Tomografia",
 };
@@ -112,7 +116,7 @@ export const ROOM_EXAM_TYPES: Record<RoomSlug, ExamType[]> = {
 export const ROOM_EXAM_LABELS: Record<RoomSlug, string> = {
   "fotografia-escaneamento": "Fotografia e escaneamento intra-oral",
   periapical: "Periapical e interproximal",
-  panoramico: "Panorâmica e telerradiografia",
+  panoramico: "Panoramica e telerradiografia",
   tomografia: "Tomografia",
 };
 
@@ -120,7 +124,7 @@ export const STATUS_LABELS: Record<QueueStatus, string> = {
   aguardando: "Aguardando ser chamado",
   chamado: "Chamado",
   em_atendimento: "Em exame",
-  finalizado: "Concluído",
+  finalizado: "Concluido",
   cancelado: "Cancelado",
 };
 
@@ -128,7 +132,7 @@ export const ROOM_STATUS_LABELS: Record<QueueStatus, string> = {
   aguardando: "Aguardando ser chamado",
   chamado: "Chamado",
   em_atendimento: "Em exame",
-  finalizado: "Concluído",
+  finalizado: "Concluido",
   cancelado: "Atendimento cancelado",
 };
 
@@ -138,7 +142,10 @@ export const PRIORITY_LABELS: Record<AttendancePriority, string> = {
   oitenta_mais: "80+",
 };
 
-export const ATTENDANCE_STATUS_LABELS: Record<AttendanceOverallStatus, string> = {
+export const ATTENDANCE_STATUS_LABELS: Record<
+  AttendanceOverallStatus,
+  string
+> = {
   aguardando: "Aguardando",
   pendente_retorno: "Pendente de retorno",
   em_andamento: "Em andamento",
@@ -147,15 +154,17 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceOverallStatus, string> =
 };
 
 export const ROLE_LABELS: Record<AppRole, string> = {
-  recepcao: "Recepção",
+  recepcao: "Recepcao",
   atendimento: "Atendimento",
   admin: "Admin",
+  gerencia: "Gerência",
 };
 
 export const ROLE_HOME: Record<AppRole, string> = {
   recepcao: "/recepcao",
   atendimento: "/atendimento",
   admin: "/admin",
+  gerencia: "/gerencia",
 };
 
 export const ROLE_NAVIGATION: Record<
@@ -165,16 +174,17 @@ export const ROLE_NAVIGATION: Record<
     label: string;
   }>
 > = {
-  recepcao: [{ href: "/recepcao", label: "Recepção" }],
+  recepcao: [{ href: "/recepcao", label: "Recepcao" }],
   atendimento: [{ href: "/atendimento", label: "Salas" }],
   admin: [{ href: "/admin", label: "Resumo do dia" }],
+  gerencia: [{ href: "/gerencia", label: "Operação" }],
 };
 
 export const REALTIME_STATUS_LABELS: Record<RealtimeStatus, string> = {
   conectando: "Conectando",
   conectado: "Tempo real ativo",
   instavel: "Reconectando",
-  offline: "Sem sincronização",
+  offline: "Sem sincronizacao",
 };
 
 export const STATUS_ORDER: QueueStatus[] = [
