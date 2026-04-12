@@ -13,8 +13,8 @@ set search_path = public
 as $$
   select case
     when auth.uid() is null then false
-    when public.current_app_role() in ('admin', 'recepcao', 'gerencia') then true
-    when public.current_app_role() <> 'atendimento' then false
+    when public.current_app_role()::text in ('admin', 'recepcao', 'gerencia') then true
+    when public.current_app_role()::text <> 'atendimento' then false
     else exists (
       select 1
       from public.profile_room_access pra
@@ -34,8 +34,8 @@ set search_path = public
 as $$
   select case
     when auth.uid() is null then false
-    when public.current_app_role() in ('admin', 'recepcao', 'gerencia') then true
-    when public.current_app_role() <> 'atendimento' then false
+    when public.current_app_role()::text in ('admin', 'recepcao', 'gerencia') then true
+    when public.current_app_role()::text <> 'atendimento' then false
     else exists (
       select 1
       from public.queue_items q
