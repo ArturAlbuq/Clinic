@@ -41,6 +41,7 @@ export type AttendantReportEntry = {
   avgStageTotalMinutes: number | null;
   calledCount: number;
   canceledCount: number;
+  examTypes: QueueItemRecord["exam_type"][];
   finishedCount: number;
   profile: ProfileRecord;
 };
@@ -117,6 +118,7 @@ export function buildAttendantReport(options: {
           (item.canceled_by === profile.id || item.updated_by === profile.id),
       ).length;
 
+      const examTypeSet = new Set(executedItems.map((item) => item.exam_type));
       return {
         avgCallMinutes: averageMinutes(
           calledItems.map((item) =>
@@ -138,6 +140,7 @@ export function buildAttendantReport(options: {
         ),
         calledCount: calledItems.length,
         canceledCount: canceledByAttendant,
+        examTypes: EXAM_ORDER.filter((type) => examTypeSet.has(type)),
         finishedCount: executedItems.length,
         profile,
       } satisfies AttendantReportEntry;
@@ -188,6 +191,7 @@ export function groupRoomReportItemsByExam(
     QueueItemRecord["exam_type"],
     {
       count: number;
+      executionMinutes: number[];
       finished: number;
       quantity: number;
       roomSlug: RoomSlug;
@@ -202,14 +206,24 @@ export function groupRoomReportItemsByExam(
         : roomFilter;
     const current = examEntries.get(item.exam_type) ?? {
       count: 0,
+      executionMinutes: [],
       finished: 0,
       quantity: 0,
       roomSlug,
       waiting: 0,
     };
 
+    const execMinutes =
+      item.status === "finalizado" && item.started_at && item.finished_at
+        ? diffMinutes(item.finished_at, item.started_at)
+        : null;
+
     examEntries.set(item.exam_type, {
       count: current.count + 1,
+      executionMinutes:
+        execMinutes !== null
+          ? [...current.executionMinutes, execMinutes]
+          : current.executionMinutes,
       finished: current.finished + (item.status === "finalizado" ? 1 : 0),
       quantity: current.quantity + item.requested_quantity,
       roomSlug: current.roomSlug,
@@ -219,6 +233,7 @@ export function groupRoomReportItemsByExam(
 
   return Array.from(examEntries.entries())
     .map(([examType, value]) => ({
+      avgExecutionMinutes: averageMinutes(value.executionMinutes),
       examType,
       roomSlug: value.roomSlug,
       finishedCount: value.finished,
@@ -227,6 +242,42 @@ export function groupRoomReportItemsByExam(
       waitingCount: value.waiting,
     }))
     .sort((left, right) => EXAM_ORDER.indexOf(left.examType) - EXAM_ORDER.indexOf(right.examType));
+}
+
+export type RoomOccupancyEntry = {
+  avgExecutionMinutes: number | null;
+  finishedCount: number;
+  roomSlug: RoomSlug;
+  totalExecutionMinutes: number | null;
+};
+
+export function buildRoomOccupancyReport(options: {
+  queueItems: QueueItemRecord[];
+  rooms: ExamRoomRecord[];
+}): RoomOccupancyEntry[] {
+  const { queueItems, rooms } = options;
+
+  return ROOM_ORDER.filter((roomSlug) =>
+    rooms.some((r) => r.slug === roomSlug),
+  ).map((roomSlug) => {
+    const roomItems = queueItems.filter(
+      (item) => item.room_slug === roomSlug && item.status === "finalizado",
+    );
+    const executionValues = roomItems
+      .filter((item) => item.started_at && item.finished_at)
+      .map((item) => diffMinutes(item.finished_at as string, item.started_at as string));
+
+    const totalExecutionMinutes = executionValues.length
+      ? executionValues.reduce((sum, v) => sum + v, 0)
+      : null;
+
+    return {
+      avgExecutionMinutes: averageMinutes(executionValues),
+      finishedCount: roomItems.length,
+      roomSlug,
+      totalExecutionMinutes,
+    } satisfies RoomOccupancyEntry;
+  });
 }
 
 export function getAdminPeriodLabel(period: QueuePeriod, selectedDate: string) {
