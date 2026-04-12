@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/status-badge";
 import {
   buildAttendantReport,
   buildReceptionReport,
+  buildRoomOccupancyReport,
   buildRoomReportItems,
   buildRoomSummaries,
   getAdminPeriodLabel,
@@ -44,6 +45,7 @@ import {
 } from "@/lib/date";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
+import { RepetitionsTab } from "@/components/repetitions-tab";
 import {
   getAttendanceOverallStatus,
   getAttendanceTotalMinutes,
@@ -73,6 +75,7 @@ type Props = {
 
 type OrderFilter = "asc" | "desc";
 type AdminTab = "operacao" | "busca" | "relatorios" | "exclusoes";
+type ReportSubTab = "indicadores" | "repeticoes";
 type PageSize = 5 | 10 | 15;
 type Option = readonly [label: string, value: string];
 
@@ -95,6 +98,7 @@ export function AdminDashboard({
   const [roomFilter, setRoomFilter] = useState<RoomSlug | "todas">("todas");
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("desc");
   const [activeTab, setActiveTab] = useState<AdminTab>("operacao");
+  const [reportSubTab, setReportSubTab] = useState<ReportSubTab>("indicadores");
   const [pageSize, setPageSize] = useState<PageSize>(5);
   const [currentPage, setCurrentPage] = useState(1);
   const [deletedAttendances, setDeletedAttendances] = useState(initialDeletedAttendances);
@@ -171,7 +175,12 @@ export function AdminDashboard({
     [attendances, queueItems, rooms],
   );
   const attendantReport = useMemo(
-    () => buildAttendantReport({ attendances: reportAttendances, profiles, queueItems: reportQueueItems }),
+    () =>
+      buildAttendantReport({
+        attendances: reportAttendances,
+        profiles,
+        queueItems: reportQueueItems,
+      }),
     [profiles, reportAttendances, reportQueueItems],
   );
   const receptionReport = useMemo(
@@ -198,6 +207,10 @@ export function AdminDashboard({
   const examReportItems = useMemo(
     () => groupRoomReportItemsByExam(filteredRoomReportItems, reportRoomFilter),
     [filteredRoomReportItems, reportRoomFilter],
+  );
+  const roomOccupancyReport = useMemo(
+    () => buildRoomOccupancyReport({ queueItems: reportQueueItems, rooms }),
+    [reportQueueItems, rooms],
   );
   const searchAttendances = useMemo(() => {
     const normalizedName = patientSearchName.trim().toLocaleLowerCase("pt-BR");
@@ -329,6 +342,14 @@ export function AdminDashboard({
     queueItems
       .filter((item) => item.status === "aguardando")
       .sort((a, b) => getQueueWaitMinutes(b) - getQueueWaitMinutes(a))[0] ?? null;
+  const longestWaitMinutes = longestWaitingItem
+    ? getQueueWaitMinutes(longestWaitingItem)
+    : null;
+  // Valores acima de 480 min indicam dado incorreto (ex.: registros de outro dia) — exibe "--"
+  const longestWaitDisplay =
+    longestWaitMinutes !== null && longestWaitMinutes <= 480
+      ? formatMinuteLabel(longestWaitMinutes)
+      : "--";
 
   const reportPdfUrl = `/api/clinic/reports/pdf?${new URLSearchParams({
     date: initialSelectedDate,
@@ -464,12 +485,13 @@ export function AdminDashboard({
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <MetricCard label="Cadastros" value={String(reportAttendances.length)} helper="Atendimentos criados no recorte." accent="teal" />
-        <MetricCard label="Etapas" value={String(reportQueueItems.length)} helper="Itens distribuidos nas salas." accent="slate" />
-        <MetricCard label="Aguardando" value={String(waitingAttendances)} helper="Atendimentos sem etapa iniciada." accent="amber" />
+        <MetricCard label="Exames" value={String(reportQueueItems.length)} helper="Itens distribuidos nas salas." accent="slate" />
+        <MetricCard label="Aguardando" value={String(waitingAttendances)} helper="Atendimentos sem exame iniciado." accent="amber" />
         <MetricCard label="80+ esperando" value={String(topPriorityWaiting)} helper="Maior prioridade ainda na fila." accent="amber" />
-        <MetricCard label="Etapas canceladas" value={String(canceledStages)} helper="Cancelamentos registrados no recorte." accent="rose" />
+        <MetricCard label="Exames cancelados" value={String(canceledStages)} helper="Cancelamentos registrados no recorte." accent="rose" />
+        <MetricCard label="Em andamento" value={String(activeAttendances)} helper="Atendimentos com exame ativo." accent="teal" />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -487,7 +509,7 @@ export function AdminDashboard({
             <Pill label="Em andamento" value={`${activeAttendances} atendimento${activeAttendances === 1 ? "" : "s"}`} tone="teal" />
             <Pill label="Aguardando" value={`${waitingAttendances} paciente${waitingAttendances === 1 ? "" : "s"}`} tone="amber" />
             <Pill label="Finalizados" value={`${finishedAttendances} concluido${finishedAttendances === 1 ? "" : "s"}`} tone="slate" />
-            <Pill label="Maior espera" value={longestWaitingItem ? formatMinuteLabel(getQueueWaitMinutes(longestWaitingItem)) : "--"} tone="amber" />
+            <Pill label="Maior espera" value={longestWaitDisplay} tone="amber" />
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
@@ -606,18 +628,39 @@ export function AdminDashboard({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Relatorios</p>
-                <h3 className="mt-2 text-2xl font-semibold text-slate-950">Indicadores do periodo</h3>
-                <p className="mt-2 text-sm text-slate-600">Recorte atual: {periodLabel}</p>
+                <h3 className="mt-2 text-2xl font-semibold text-slate-950">
+                  {reportSubTab === "indicadores" ? "Indicadores do periodo" : "Repeticoes de exames"}
+                </h3>
+                {reportSubTab === "indicadores" && (
+                  <p className="mt-2 text-sm text-slate-600">Recorte atual: {periodLabel}</p>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <SelectField label="Sala" value={reportRoomFilter} onChange={(value) => setReportRoomFilter(value as RoomSlug | "todas")} options={roomOptions} />
-                <label className="flex min-w-[220px] flex-col gap-2 rounded-[18px] border border-slate-200 bg-slate-50/70 px-3 py-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Paciente</span>
-                  <input className="bg-transparent text-sm font-medium text-slate-900 outline-none" type="search" value={reportPatientSearch} onChange={(event) => setReportPatientSearch(event.target.value)} placeholder="Buscar por nome" />
-                </label>
-                <a href={reportPdfUrl} target="_blank" rel="noreferrer" className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50">Baixar PDF</a>
+                <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+                  <TabButton active={reportSubTab === "indicadores"} label="Indicadores" onClick={() => setReportSubTab("indicadores")} />
+                  <TabButton active={reportSubTab === "repeticoes"} label="Repeticoes" onClick={() => setReportSubTab("repeticoes")} />
+                </div>
+                {reportSubTab === "indicadores" && (
+                  <>
+                    <SelectField label="Sala" value={reportRoomFilter} onChange={(value) => setReportRoomFilter(value as RoomSlug | "todas")} options={roomOptions} />
+                    <label className="flex min-w-[220px] flex-col gap-2 rounded-[18px] border border-slate-200 bg-slate-50/70 px-3 py-3">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Paciente</span>
+                      <input className="bg-transparent text-sm font-medium text-slate-900 outline-none" type="search" value={reportPatientSearch} onChange={(event) => setReportPatientSearch(event.target.value)} placeholder="Buscar por nome" />
+                    </label>
+                    <a href={reportPdfUrl} target="_blank" rel="noreferrer" className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50">Baixar PDF</a>
+                  </>
+                )}
               </div>
             </div>
+          </section>
+
+          {reportSubTab === "indicadores" ? (
+          <>
+          <section className="grid gap-4 xl:grid-cols-4">
+            <Pill label="Operadores" tone="amber" value={`${attendantReport.length} ativo(s)`} />
+            <Pill label="Exames no recorte" tone="teal" value={`${examReportItems.length} tipo(s)`} />
+            <Pill label="Salas ativas" tone="rose" value={`${roomOccupancyReport.filter((entry) => entry.finishedCount > 0).length} sala(s)`} />
+            <Pill label="Recepcao" tone="slate" value={`${receptionReport.length} operador(es)`} />
           </section>
 
           <section className="grid gap-4 xl:grid-cols-3">
@@ -627,7 +670,13 @@ export function AdminDashboard({
                 {attendantReport.map((entry) => (
                   <div key={entry.profile.id} className="rounded-[24px] border border-slate-200 bg-white/85 px-4 py-4">
                     <p className="text-lg font-semibold text-slate-950">{entry.profile.full_name}</p>
-                    <p className="mt-2 text-sm text-slate-600">{entry.calledCount} chamada(s) · {entry.finishedCount} etapa(s) concluida(s)</p>
+                    <p className="mt-2 text-sm text-slate-600">{entry.calledCount} chamada(s) · {entry.finishedCount} exame(s) concluido(s) · {entry.canceledCount} cancelamento(s)</p>
+                    {entry.avgExecutionMinutes !== null ? (
+                      <p className="mt-1 text-xs text-slate-500">Tempo médio por exame: {formatMinuteLabel(entry.avgExecutionMinutes)}</p>
+                    ) : null}
+                    {entry.examTypes.length ? (
+                      <p className="mt-1 text-xs text-slate-400">{entry.examTypes.map((t) => EXAM_LABELS[t]).join(" · ")}</p>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -642,10 +691,11 @@ export function AdminDashboard({
                         <p className="text-lg font-semibold text-slate-950">{EXAM_LABELS[entry.examType]}</p>
                         <p className="text-sm text-slate-600">{ROOM_BY_SLUG[entry.roomSlug].roomName}</p>
                       </div>
-                      <div className="grid gap-2 sm:grid-cols-3">
+                      <div className="grid gap-2 sm:grid-cols-4">
                         <Info label="Itens" value={String(entry.totalItems)} />
                         <Info label="Qtd." value={String(entry.totalQuantity)} />
                         <Info label="Finalizados" value={String(entry.finishedCount)} />
+                        <Info label="Tempo médio" value={formatMinuteLabel(entry.avgExecutionMinutes)} />
                       </div>
                     </div>
                   </div>
@@ -653,6 +703,24 @@ export function AdminDashboard({
               </div>
             </div>
             <div className="space-y-4">
+              <div className="app-panel rounded-[30px] px-6 py-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Atendimentos por sala</p>
+                <div className="mt-6 space-y-3">
+                  {roomOccupancyReport.filter((entry) => entry.finishedCount > 0).map((entry) => (
+                    <div key={entry.roomSlug} className="rounded-[24px] border border-slate-200 bg-white/85 px-4 py-4">
+                      <p className="text-base font-semibold text-slate-950">{ROOM_BY_SLUG[entry.roomSlug].roomName}</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                        <Info label="Finalizados" value={String(entry.finishedCount)} />
+                        <Info label="Total em exame" value={entry.totalExecutionMinutes !== null ? formatMinuteLabel(entry.totalExecutionMinutes) : "--"} />
+                        <Info label="Tempo médio" value={formatMinuteLabel(entry.avgExecutionMinutes)} />
+                      </div>
+                    </div>
+                  ))}
+                  {roomOccupancyReport.every((entry) => entry.finishedCount === 0) ? (
+                    <EmptyState title="Nenhum exame finalizado neste recorte" description="Os dados aparecem quando houver exames concluidos no periodo." />
+                  ) : null}
+                </div>
+              </div>
               <div className="app-panel rounded-[30px] px-6 py-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cadastros da recepcao</p>
                 <div className="mt-6 space-y-3">
@@ -686,6 +754,10 @@ export function AdminDashboard({
               </div>
             </div>
           </section>
+          </>
+          ) : (
+            <RepetitionsTab profiles={profiles} rooms={rooms} />
+          )}
         </section>
       ) : (
         <section className="space-y-4">
@@ -850,7 +922,7 @@ function AttendanceRow({
         ROOM_BY_SLUG[selectedStageItem.room_slug as RoomSlug]?.roomName ??
         selectedStageItem.room_slug
       }`
-    : "Sem etapa aberta";
+    : "Sem exame aberto";
   const selectedStageIsReturnPending = selectedStageItem
     ? isQueueItemReturnPending({ ...selectedStageItem, attendance }, new Date(nowMs))
     : false;
@@ -967,14 +1039,13 @@ function AttendanceRow({
 
     setIsDeleting(true);
 
-    const response = await fetch("/api/clinic/attendances", {
+    const response = await fetch(`/api/clinic/attendances/${attendance.id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
       },
       credentials: "same-origin",
       body: JSON.stringify({
-        attendanceId: attendance.id,
         reason: deleteReason,
       }),
     });
@@ -1000,7 +1071,7 @@ function AttendanceRow({
     setMutationError("");
 
     if (!selectedStageItem) {
-      setMutationError("Selecione uma etapa aberta para cancelar.");
+      setMutationError("Selecione um exame aberto para cancelar.");
       return;
     }
 
@@ -1031,7 +1102,7 @@ function AttendanceRow({
     }>(response)) ?? {};
 
     if (!response.ok || !payload.attendance) {
-      setMutationError(payload.error || "Nao foi possivel cancelar a etapa.");
+      setMutationError(payload.error || "Nao foi possivel cancelar o exame.");
       setIsCanceling(false);
       return;
     }
@@ -1050,7 +1121,7 @@ function AttendanceRow({
   async function submitReturnPending(nextIsPending: boolean) {
     setMutationError("");
     if (!selectedStageItem) {
-      setMutationError("Selecione uma etapa aberta para atualizar a pendencia.");
+      setMutationError("Selecione um exame aberto para atualizar a pendencia.");
       return;
     }
 
@@ -1157,7 +1228,7 @@ function AttendanceRow({
           </p>
           <p className="mt-1 text-sm text-slate-700">
             {waitingItems.length
-              ? `${waitingItems.length} etapa${waitingItems.length === 1 ? "" : "s"} aguardando`
+              ? `${waitingItems.length} exame${waitingItems.length === 1 ? "" : "s"} aguardando`
               : "Sem espera aberta"}
           </p>
           <p className="mt-2 text-sm text-slate-700">
@@ -1183,7 +1254,7 @@ function AttendanceRow({
           ))}
           {actionableStageItems.length ? (
             <label className="flex min-w-[280px] flex-1 flex-col gap-2 rounded-[18px] border border-slate-200 bg-white px-4 py-3">
-              <span className="text-sm font-semibold text-slate-700">Etapa em foco</span>
+              <span className="text-sm font-semibold text-slate-700">Exame em foco</span>
               <select
                 className="bg-transparent text-sm text-slate-900 outline-none"
                 value={effectiveSelectedStageItemId ?? ""}
@@ -1225,7 +1296,7 @@ function AttendanceRow({
                 }}
                 disabled={isCanceling}
               >
-                {isCancelFormOpen ? "Fechar cancelamento" : "Cancelar etapa"}
+                {isCancelFormOpen ? "Fechar cancelamento" : "Cancelar exame"}
               </button>
             ) : null}
             <button
@@ -1260,8 +1331,8 @@ function AttendanceRow({
                 {isUpdatingReturn
                   ? "Atualizando retorno..."
                   : selectedStageIsReturnPending
-                    ? "Retomar etapa"
-                    : "Marcar pendencia da etapa"}
+                    ? "Retomar exame"
+                    : "Marcar pendencia do exame"}
               </button>
             ) : null}
             <button
@@ -1329,7 +1400,7 @@ function AttendanceRow({
                 Marcar etapa em pendencia de retorno
               </p>
               <p className="mt-2 text-sm text-fuchsia-800">
-                Etapa: {selectedStageLabel}. Ela sai da fila normal sem afetar as demais.
+                Exame: {selectedStageLabel}. Ele sai da fila normal sem afetar os demais.
               </p>
               <div className="mt-4 grid gap-4">
                 <label className="flex flex-col gap-2">
@@ -1341,7 +1412,7 @@ function AttendanceRow({
                     className="min-h-[110px] rounded-[18px] border border-fuchsia-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
                     value={returnReason}
                     onChange={(event) => setReturnReason(event.target.value)}
-                    placeholder="Ex.: equipamento indisponivel, paciente remarcado, etapa restante para outro dia."
+                    placeholder="Ex.: equipamento indisponivel, paciente remarcado, exame restante para outro dia."
                   />
                 </label>
               </div>
@@ -1721,9 +1792,9 @@ function PatientSearchCard({ attendance }: { attendance: AttendanceWithQueueItem
           <p className="mb-4 text-sm text-slate-600">Observacao: {attendance.notes}</p>
         ) : null}
         {orderedItems.length ? (
-          <AttendanceTimeline items={orderedItems} title="Etapas vinculadas" />
+          <AttendanceTimeline items={orderedItems} title="Exames vinculados" />
         ) : (
-          <p className="text-sm text-slate-600">Sem etapas vinculadas neste atendimento.</p>
+          <p className="text-sm text-slate-600">Sem exames vinculados neste atendimento.</p>
         )}
       </div>
     </details>
@@ -1816,7 +1887,7 @@ function DeletionRecordCard({
           {orderedItems.length ? (
             <AttendanceTimeline items={orderedItems} title="Exames vinculados na exclusao" />
           ) : (
-            <p className="text-sm text-slate-600">Sem etapas vinculadas neste atendimento.</p>
+            <p className="text-sm text-slate-600">Sem exames vinculados neste atendimento.</p>
           )}
         </div>
       </div>
