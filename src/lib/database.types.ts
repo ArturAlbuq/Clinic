@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -293,6 +293,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      exam_repetitions: {
+        Row: {
+          id: string;
+          queue_item_id: string;
+          attendance_id: string;
+          exam_type: ExamType;
+          room_slug: string | null;
+          technician_id: string | null;
+          repeated_at: string;
+          repetition_index: number;
+        };
+        Insert: {
+          id?: string;
+          queue_item_id: string;
+          attendance_id: string;
+          exam_type: ExamType;
+          room_slug?: string | null;
+          technician_id?: string | null;
+          repeated_at?: string;
+          repetition_index: number;
+        };
+        Update: {
+          id?: string;
+          queue_item_id?: string;
+          attendance_id?: string;
+          exam_type?: ExamType;
+          room_slug?: string | null;
+          technician_id?: string | null;
+          repeated_at?: string;
+          repetition_index?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -373,6 +406,8 @@ export type ProfileRoomAccessRecord =
   Database["public"]["Tables"]["profile_room_access"]["Row"];
 export type AttendanceRecord = Database["public"]["Tables"]["attendances"]["Row"];
 export type QueueItemRecord = Database["public"]["Tables"]["queue_items"]["Row"];
+export type ExamRepetitionRecord =
+  Database["public"]["Tables"]["exam_repetitions"]["Row"];
 
 export type QueueItemWithAttendance = QueueItemRecord & {
   attendance: AttendanceRecord | null;
