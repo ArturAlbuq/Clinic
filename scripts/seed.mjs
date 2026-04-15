@@ -245,6 +245,20 @@ const users = [
     room_slugs: allRoomSlugs,
   },
   {
+    email: "eliane@clinic.local",
+    full_name: "ELIANE",
+    passwordEnv: "SEED_ELIANE_PASSWORD",
+    role: "atendimento",
+    room_slugs: allRoomSlugs,
+  },
+  {
+    email: "andreza@clinic.local",
+    full_name: "ANDREZA",
+    passwordEnv: "SEED_ANDREZA_PASSWORD",
+    role: "atendimento",
+    room_slugs: allRoomSlugs,
+  },
+  {
     email: "gerencia@clinic.local",
     full_name: "Gerência",
     passwordEnv: "SEED_GERENCIA_PASSWORD",

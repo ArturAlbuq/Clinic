@@ -10,7 +10,10 @@ import { PwaInstallControl } from "@/components/pwa-install-control";
 import { RealtimeStatusBadge } from "@/components/realtime-status";
 import { StatusBadge } from "@/components/status-badge";
 import { useAttentionAlert } from "@/hooks/use-attention-alert";
-import { EXAM_LABELS, ROOM_STATUS_LABELS } from "@/lib/constants";
+import {
+  EXAM_LABELS,
+  ROOM_STATUS_LABELS,
+} from "@/lib/constants";
 import type {
   AttendanceRecord,
   QueueItemRecord,
@@ -169,7 +172,7 @@ export function RoomQueueBoard({
     }>(response)) ?? {};
 
     if (!response.ok || !payload.queueItem) {
-      setActionError(payload.error || "Nao foi possivel avancar a etapa.");
+      setActionError(payload.error || "Nao foi possivel avancar o exame.");
       setPendingItemId(null);
       return;
     }
@@ -287,7 +290,7 @@ export function RoomQueueBoard({
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
               {isToday
-                ? "Chame o proximo paciente, inicie o exame, conclua a etapa e marque pendencia de retorno quando precisar tirar o atendimento da fila atual."
+                ? "Chame o proximo paciente, inicie o exame, conclua o exame e marque pendencia de retorno quando precisar tirar o atendimento da fila atual."
                 : `Consulta de ${formatDate(selectedDate)}. Fora de hoje, a sala fica em modo leitura para nao alterar o fluxo operacional vigente.`}
             </p>
           </div>
@@ -339,7 +342,7 @@ export function RoomQueueBoard({
         </div>
         <div className="mt-6">
           <DayFilterControls
-            historyMessage="Modo consulta ativo. Para chamar, concluir ou retomar etapas, volte para Hoje."
+            historyMessage="Modo consulta ativo. Para chamar, concluir ou retomar exames, volte para Hoje."
             selectedDate={selectedDate}
           />
         </div>
@@ -364,6 +367,7 @@ export function RoomQueueBoard({
             const referenceNow = nowMs;
             const waitMinutes = getQueueWaitMinutes(item, referenceNow);
             const isNew = isQueueItemNew(item, referenceNow);
+            const registrationNumber = item.attendance?.patient_registration_number;
             const containerStyle = STATUS_CONTAINER_STYLES[item.status];
 
             return (
@@ -394,6 +398,11 @@ export function RoomQueueBoard({
                     <p className="mt-2 text-sm leading-6 text-slate-600">
                       {item.attendance?.notes || item.notes || "Sem observacao registrada."}
                     </p>
+                    {registrationNumber ? (
+                      <p className="mt-2 text-sm font-medium text-cyan-800">
+                        Cadastro {registrationNumber}
+                      </p>
+                    ) : null}
                   </div>
 
                   <StatusBadge status={item.status} />
@@ -487,7 +496,7 @@ export function RoomQueueBoard({
                           value={returnReason}
                           onChange={(event) => setReturnReason(event.target.value)}
                           className="w-full rounded-2xl border border-fuchsia-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100"
-                          placeholder="Ex.: equipamento indisponivel, paciente remarcado, etapa restante para outro dia."
+                          placeholder="Ex.: equipamento indisponivel, paciente remarcado, exame restante para outro dia."
                         />
                       </label>
                       <div className="flex flex-wrap gap-3">
@@ -516,6 +525,7 @@ export function RoomQueueBoard({
                     </div>
                   </div>
                 ) : null}
+
               </article>
             );
           })}
@@ -544,13 +554,16 @@ export function RoomQueueBoard({
           </div>
 
           <div className="mt-6 space-y-3">
-            {returnPendingItems.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-[24px] border border-fuchsia-200 bg-fuchsia-50/60 px-5 py-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+            {returnPendingItems.map((item) => {
+                const registrationNumber = item.attendance?.patient_registration_number;
+
+              return (
+                  <div
+                    key={item.id}
+                    className="rounded-[24px] border border-fuchsia-200 bg-fuchsia-50/60 px-5 py-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-lg font-semibold text-slate-950">
                         {item.attendance?.patient_name ?? item.patient_name}
@@ -563,6 +576,11 @@ export function RoomQueueBoard({
                         Retorno pendente
                       </span>
                     </div>
+                    {registrationNumber ? (
+                      <p className="mt-1 text-sm font-medium text-cyan-800">
+                        Cadastro {registrationNumber}
+                      </p>
+                    ) : null}
                     <p className="mt-2 text-sm text-slate-700">
                       {item.return_pending_reason ||
                         item.attendance?.return_pending_reason ||
@@ -585,8 +603,9 @@ export function RoomQueueBoard({
                       : "Retomar atendimento"}
                   </button>
                 </div>
-              </div>
-            ))}
+                  </div>
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -608,12 +627,15 @@ export function RoomQueueBoard({
           </div>
 
           <div className="mt-6 space-y-3">
-            {canceledItems.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-[24px] border border-rose-200 bg-rose-50/60 px-5 py-4"
-              >
-                <div className="flex flex-wrap items-center gap-2">
+            {canceledItems.map((item) => {
+                const registrationNumber = item.attendance?.patient_registration_number;
+
+              return (
+                  <div
+                    key={item.id}
+                    className="rounded-[24px] border border-rose-200 bg-rose-50/60 px-5 py-4"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
                   <p className="text-lg font-semibold text-slate-950">
                     {item.attendance?.patient_name ?? item.patient_name}
                   </p>
@@ -622,6 +644,11 @@ export function RoomQueueBoard({
                   ) : null}
                   <StatusBadge status={item.status} />
                 </div>
+                {registrationNumber ? (
+                  <p className="mt-1 text-sm font-medium text-cyan-800">
+                    Cadastro {registrationNumber}
+                  </p>
+                ) : null}
                 <p className="mt-2 text-sm text-slate-700">
                   {item.cancellation_reason ||
                     item.attendance?.cancellation_reason ||
@@ -635,8 +662,9 @@ export function RoomQueueBoard({
                       ? formatDateTime(item.canceled_at)
                       : "--"}
                 </p>
-              </div>
-            ))}
+                  </div>
+              );
+            })}
           </div>
         </section>
       ) : null}
