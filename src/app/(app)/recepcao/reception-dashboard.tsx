@@ -177,6 +177,17 @@ export function ReceptionDashboard({
     setFormError("");
     setFormSuccess("");
 
+    if (isSubmitting) {
+      return;
+    }
+
+    const trimmedPatientName = patientName.trim();
+
+    if (trimmedPatientName.length < 2) {
+      setFormError("Nome do paciente deve ter ao menos 2 caracteres.");
+      return;
+    }
+
     if (!selectedExams.length) {
       setFormError("Selecione ao menos um exame.");
       return;
@@ -193,8 +204,8 @@ export function ReceptionDashboard({
       body: JSON.stringify({
         examQuantities,
         notes,
-        patientName,
-        patientRegistrationNumber,
+        patientName: trimmedPatientName,
+        patientRegistrationNumber: patientRegistrationNumber.trim() || null,
         priority,
         selectedExams,
       }),
@@ -265,7 +276,7 @@ export function ReceptionDashboard({
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
                 {isToday
-                  ? "A recepcao escolhe os exames, informa a quantidade quando fizer sentido e o sistema direciona cada etapa para a sala correta."
+                  ? "A recepcao escolhe os exames, informa a quantidade quando fizer sentido e o sistema direciona cada exame para a sala correta."
                   : `Consulta dos registros de ${formatDate(selectedDate)}. O cadastro rapido fica liberado apenas no dia atual.`}
               </p>
             </div>
@@ -302,10 +313,11 @@ export function ReceptionDashboard({
                 </span>
                 <input
                   type="text"
+                  required
                   value={patientRegistrationNumber}
                   onChange={(event) => setPatientRegistrationNumber(event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                  placeholder="Opcional. Ex.: 548921"
+                  placeholder="Obrigatorio. Ex.: 548921"
                 />
               </label>
 
@@ -449,19 +461,19 @@ export function ReceptionDashboard({
           <MetricCard
             label="Aguardando"
             value={String(totalWaiting)}
-            helper="Atendimentos sem etapa iniciada."
+            helper="Atendimentos sem exame iniciado."
             accent="amber"
           />
           <MetricCard
             label="Em andamento"
             value={String(totalInProgress)}
-            helper="Atendimentos com alguma etapa em fluxo."
+            helper="Atendimentos com algum exame em fluxo."
             accent="teal"
           />
           <MetricCard
             label="Finalizados"
             value={String(totalFinished)}
-            helper="Atendimentos com todas as etapas concluidas."
+            helper="Atendimentos com todos os exames concluidos."
           />
           <MetricCard
             label="Cancelados"
@@ -609,7 +621,7 @@ function AttendanceRow({
         </div>
       </div>
       <div className="mt-4 border-t border-slate-100 pt-4">
-        <AttendanceTimeline items={attendance.queueItems} title="Etapas do atendimento" />
+        <AttendanceTimeline items={attendance.queueItems} title="Exames do atendimento" />
       </div>
       {actionableItems.length ? (
         <div className="mt-4 border-t border-slate-100 pt-4">
@@ -633,7 +645,7 @@ function AttendanceRow({
   );
 }
 
-function ReceptionReturnActionCard({
+export function ReceptionReturnActionCard({
   attendance,
   isToday,
   item,
@@ -735,7 +747,7 @@ function ReceptionReturnActionCard({
               ? item.return_pending_reason ||
                 attendance.return_pending_reason ||
                 "Sem motivo registrado."
-              : "A recepcao pode tirar esta etapa da fila atual quando o paciente precisar retornar depois."}
+              : "A recepcao pode tirar este exame da fila atual quando o paciente precisar retornar depois."}
           </p>
         </div>
 
@@ -750,7 +762,7 @@ function ReceptionReturnActionCard({
               ? "Disponivel apenas hoje"
               : isSubmitting
                 ? "Retomando..."
-                : "Retomar etapa"}
+                : "Retomar exame"}
           </button>
         ) : (
           <button
@@ -781,7 +793,7 @@ function ReceptionReturnActionCard({
               value={returnReason}
               onChange={(event) => setReturnReason(event.target.value)}
               className="w-full rounded-2xl border border-fuchsia-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100"
-              placeholder="Ex.: paciente saiu e volta depois, etapa restante para outro horario."
+              placeholder="Ex.: paciente saiu e volta depois, exame restante para outro horario."
             />
           </label>
           {returnError ? (
