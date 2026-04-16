@@ -1,5 +1,5 @@
 import { AttendanceTimeline } from "@/components/attendance-timeline";
-import { ReceptionReturnActionCard } from "../app/(app)/recepcao/reception-dashboard"; // Temporarily import from dashboard
+import { ReceptionReturnActionCard } from "@/components/reception-return-action-card";
 import { EXAM_LABELS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/date";
 import { sortAttendanceQueueItemsByFlow, isQueueItemReturnPending } from "@/lib/queue";

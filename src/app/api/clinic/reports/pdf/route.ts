@@ -8,7 +8,11 @@ import {
   groupRoomReportItemsByExam,
 } from "@/lib/admin-report";
 import { requireRole } from "@/lib/auth";
-import { EXAM_LABELS, ROOM_BY_SLUG, type RoomSlug } from "@/lib/constants";
+import {
+  EXAM_LABELS,
+  ROOM_BY_SLUG,
+  type RoomSlug,
+} from "@/lib/constants";
 import {
   fetchAttendances,
   fetchExamRooms,
@@ -51,12 +55,13 @@ export async function GET(request: Request) {
 
   const { supabase } = await requireRole("admin");
   const range = getRangeBounds(period, selectedDate);
-  const [{ data: profiles }, attendances, queueItems, rooms] = await Promise.all([
-    supabase.from("profiles").select("*").order("full_name", { ascending: true }),
-    fetchAttendances(supabase, { range }),
-    fetchQueueItems(supabase, { range }),
-    fetchExamRooms(supabase),
-  ]);
+  const [{ data: profiles }, attendances, queueItems, rooms] =
+    await Promise.all([
+      supabase.from("profiles").select("*").order("full_name", { ascending: true }),
+      fetchAttendances(supabase, { range }),
+      fetchQueueItems(supabase, { range }),
+      fetchExamRooms(supabase),
+    ]);
 
   const attendantReport = buildAttendantReport({
     attendances,
@@ -79,7 +84,10 @@ export async function GET(request: Request) {
       : true,
   );
   const groupedByExam = groupRoomReportItemsByExam(roomReportItems, roomFilter);
-  const periodLabel = getAdminPeriodLabel(period, selectedDate.toISOString().slice(0, 10));
+  const periodLabel = getAdminPeriodLabel(
+    period,
+    selectedDate.toISOString().slice(0, 10),
+  );
   const roomLabel =
     roomFilter === "todas"
       ? "Todas as salas"
@@ -153,7 +161,7 @@ export async function GET(request: Request) {
     for (const entry of attendantReport) {
       drawLine(entry.profile.full_name, { bold: true });
       drawLine(
-        `Chamadas ${entry.calledCount} | etapas concluídas ${entry.finishedCount} | cancelamentos ${entry.canceledCount}`,
+        `Chamadas ${entry.calledCount} | exames concluídos ${entry.finishedCount} | cancelamentos ${entry.canceledCount}`,
       );
       drawLine(
         `Tempo para chamar ${formatPdfMinutes(entry.avgCallMinutes)} | tempo em exame ${formatPdfMinutes(entry.avgExecutionMinutes)} | tempo total ${formatPdfMinutes(entry.avgStageTotalMinutes)}`,
@@ -176,7 +184,8 @@ export async function GET(request: Request) {
   drawSectionTitle(drawLine, "Itens por sala e data");
   if (roomReportItems.length) {
     for (const item of roomReportItems) {
-      const patientName = item.attendance?.patient_name ?? item.patient_name ?? "Paciente";
+      const patientName =
+        item.attendance?.patient_name ?? item.patient_name ?? "Paciente";
       drawLine(
         `${patientName} | ${EXAM_LABELS[item.exam_type]} | ${ROOM_BY_SLUG[item.room_slug as RoomSlug]?.roomName ?? item.room_slug} | status ${item.status} | qtd. ${item.requested_quantity}`,
       );
@@ -252,4 +261,3 @@ function wrapText(text: string, maxLength: number) {
 function formatPdfMinutes(value: number | null) {
   return value === null ? "--" : `${value} min`;
 }
-

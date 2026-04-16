@@ -1,5 +1,34 @@
 export const CLINIC_TIMEZONE = "America/Manaus";
-export const CLINIC_UTC_OFFSET_MINUTES = -4 * 60;
+
+function getClinicUtcOffsetMinutes(date: Date = new Date()) {
+  const utcMs = date.getTime();
+  const localParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLINIC_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (type: string) =>
+    Number(localParts.find((p) => p.type === type)?.value ?? "0");
+
+  const localMs = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour") % 24,
+    get("minute"),
+    get("second"),
+  );
+
+  return Math.round((localMs - utcMs) / 60_000);
+}
+
+export const CLINIC_UTC_OFFSET_MINUTES = getClinicUtcOffsetMinutes();
 
 type DateLike = Date | string | number;
 
@@ -68,9 +97,8 @@ function pad(value: number) {
 
 export function getClinicDateParts(value: DateLike = new Date()): ClinicDateParts {
   const date = toDate(value);
-  const clinicDate = new Date(
-    date.getTime() + CLINIC_UTC_OFFSET_MINUTES * 60 * 1000,
-  );
+  const offsetMinutes = getClinicUtcOffsetMinutes(date);
+  const clinicDate = new Date(date.getTime() + offsetMinutes * 60 * 1000);
 
   return {
     year: clinicDate.getUTCFullYear(),
@@ -91,17 +119,19 @@ export function clinicLocalDateToUtcDate(
   const second = parts.second ?? 0;
   const millisecond = parts.millisecond ?? 0;
 
+  // First approximation using the module-level offset (avoids cold start cost).
+  // Then refine with the actual offset for that approximate UTC instant so DST
+  // transitions (if the IANA database ever adds them for this timezone) are
+  // handled correctly.
+  const approxUtcMs =
+    Date.UTC(parts.year, parts.month - 1, parts.day, hour, minute, second, millisecond) -
+    CLINIC_UTC_OFFSET_MINUTES * 60_000;
+
+  const refinedOffsetMinutes = getClinicUtcOffsetMinutes(new Date(approxUtcMs));
+
   return new Date(
-    Date.UTC(
-      parts.year,
-      parts.month - 1,
-      parts.day,
-      hour,
-      minute,
-      second,
-      millisecond,
-    ) -
-      CLINIC_UTC_OFFSET_MINUTES * 60 * 1000,
+    Date.UTC(parts.year, parts.month - 1, parts.day, hour, minute, second, millisecond) -
+      refinedOffsetMinutes * 60_000,
   );
 }
 

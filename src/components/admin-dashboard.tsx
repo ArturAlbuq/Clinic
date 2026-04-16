@@ -166,13 +166,21 @@ export function AdminDashboard({
       }),
     [queueItems, range.endIso, range.startIso],
   );
-  const groupedAttendances = useMemo(
-    () => sortAttendancesByPriorityAndCreatedAt(groupAttendancesWithQueueItems(attendances, queueItems)),
-    [attendances, queueItems],
+  const operationalAttendances = useMemo(
+    () =>
+      sortAttendancesByPriorityAndCreatedAt(
+        groupAttendancesWithQueueItems(reportAttendances, reportQueueItems),
+      ),
+    [reportAttendances, reportQueueItems],
   );
   const roomSummaries = useMemo(
-    () => buildRoomSummaries({ attendances, queueItems, rooms }),
-    [attendances, queueItems, rooms],
+    () =>
+      buildRoomSummaries({
+        attendances: reportAttendances,
+        queueItems: reportQueueItems,
+        rooms,
+      }),
+    [reportAttendances, reportQueueItems, rooms],
   );
   const attendantReport = useMemo(
     () =>
@@ -300,7 +308,7 @@ export function AdminDashboard({
   ]);
 
   const visibleAttendances = useMemo(() => {
-    const filtered = groupedAttendances.filter((attendance) => {
+    const filtered = operationalAttendances.filter((attendance) => {
       const overallStatus = getAttendanceOverallStatus(attendance, attendance.queueItems);
       return (
         (priorityFilter === "todas" || attendance.priority === priorityFilter) &&
@@ -314,7 +322,7 @@ export function AdminDashboard({
       const diff = new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
       return orderFilter === "asc" ? diff : diff * -1;
     });
-  }, [examFilter, groupedAttendances, orderFilter, priorityFilter, roomFilter, statusFilter]);
+  }, [examFilter, operationalAttendances, orderFilter, priorityFilter, roomFilter, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(visibleAttendances.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -323,23 +331,23 @@ export function AdminDashboard({
     safeCurrentPage * pageSize,
   );
 
-  const waitingAttendances = groupedAttendances.filter(
+  const waitingAttendances = operationalAttendances.filter(
     (attendance) => getAttendanceOverallStatus(attendance, attendance.queueItems) === "aguardando",
   ).length;
-  const activeAttendances = groupedAttendances.filter(
+  const activeAttendances = operationalAttendances.filter(
     (attendance) => getAttendanceOverallStatus(attendance, attendance.queueItems) === "em_andamento",
   ).length;
-  const finishedAttendances = groupedAttendances.filter(
+  const finishedAttendances = operationalAttendances.filter(
     (attendance) => getAttendanceOverallStatus(attendance, attendance.queueItems) === "finalizado",
   ).length;
-  const canceledStages = queueItems.filter((item) => item.status === "cancelado").length;
-  const topPriorityWaiting = groupedAttendances.filter(
+  const canceledStages = reportQueueItems.filter((item) => item.status === "cancelado").length;
+  const topPriorityWaiting = operationalAttendances.filter(
     (attendance) =>
       attendance.priority === "oitenta_mais" &&
       getAttendanceOverallStatus(attendance, attendance.queueItems) === "aguardando",
   ).length;
   const longestWaitingItem =
-    queueItems
+    reportQueueItems
       .filter((item) => item.status === "aguardando")
       .sort((a, b) => getQueueWaitMinutes(b) - getQueueWaitMinutes(a))[0] ?? null;
   const longestWaitMinutes = longestWaitingItem

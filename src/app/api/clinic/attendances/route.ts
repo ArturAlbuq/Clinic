@@ -231,7 +231,7 @@ function mapCancelAttendanceError(message?: string | null) {
 
   if (message.includes("atendimento sem etapas abertas")) {
     return {
-      error: "Atendimento sem etapas abertas para cancelamento.",
+      error: "Atendimento sem exames abertos para cancelamento.",
       status: 409,
     };
   }
@@ -298,6 +298,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!patientRegistrationNumber) {
+    return NextResponse.json(
+      { error: "Informe o numero do cadastro do paciente." },
+      { status: 400 },
+    );
+  }
+
   if (!priority || !ALLOWED_PRIORITIES.has(priority)) {
     return NextResponse.json({ error: "Prioridade invalida." }, { status: 400 });
   }
@@ -329,15 +336,12 @@ export async function POST(request: Request) {
   let payload = attemptWithQuantities.data as CreateAttendancePayload | null;
   let rpcError = attemptWithQuantities.error;
 
-  if (
-    !payload &&
-    isLegacyRpcSignatureError(rpcError?.message) &&
-    !patientRegistrationNumber
-  ) {
+  if (!payload && isLegacyRpcSignatureError(rpcError?.message)) {
     const legacyAttempt = await supabase.rpc("create_attendance_with_queue_items", {
       p_exam_types: selectedExams,
       p_notes: notes || null,
       p_patient_name: patientName,
+      p_patient_registration_number: patientRegistrationNumber,
       p_priority: priority,
     });
 

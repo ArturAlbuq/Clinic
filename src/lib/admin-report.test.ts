@@ -6,6 +6,7 @@ import type {
   QueueItemRecord,
 } from "@/lib/database.types";
 import {
+  buildAttendantReport,
   buildRoomSummaries,
   groupRoomReportItemsByExam,
 } from "@/lib/admin-report";
@@ -175,4 +176,68 @@ test("buildRoomSummaries usa finalizados e detecta novo aguardando", () => {
   assert.equal(periapicalSummary?.finishedCount, 1);
   assert.equal(periapicalSummary?.hasNewWaiting, true);
   assert.equal(periapicalSummary?.newWaitingCount, 1);
+});
+
+test("buildAttendantReport agrega chamadas, concluidos e cancelamentos por operador", () => {
+  const queueItems = [
+    buildQueueItem({
+      called_at: "2026-03-28T12:04:00.000Z",
+      called_by: "profile-1",
+      exam_type: "fotografia",
+      finished_at: "2026-03-28T12:20:00.000Z",
+      id: "queue-item-1",
+      started_at: "2026-03-28T12:05:00.000Z",
+      started_by: "profile-1",
+      status: "finalizado",
+    }),
+    buildQueueItem({
+      called_at: "2026-03-28T12:24:00.000Z",
+      called_by: "profile-2",
+      exam_type: "panoramica",
+      finished_at: "2026-03-28T12:40:00.000Z",
+      id: "queue-item-2",
+      room_slug: "panoramico",
+      started_at: "2026-03-28T12:25:00.000Z",
+      started_by: "profile-2",
+      status: "finalizado",
+    }),
+    buildQueueItem({
+      called_at: "2026-03-28T12:45:00.000Z",
+      called_by: "profile-2",
+      canceled_at: "2026-03-28T12:47:00.000Z",
+      canceled_by: "profile-2",
+      exam_type: "interproximal",
+      id: "queue-item-3",
+      room_slug: "periapical",
+      status: "cancelado",
+      updated_by: "profile-2",
+    }),
+  ];
+  const attendantReport = buildAttendantReport({
+    attendances: [buildAttendance()],
+    profiles: [
+      {
+        created_at: "2026-03-28T12:00:00.000Z",
+        full_name: "Operador 1",
+        id: "profile-1",
+        role: "atendimento",
+      },
+      {
+        created_at: "2026-03-28T12:00:00.000Z",
+        full_name: "Operador 2",
+        id: "profile-2",
+        role: "atendimento",
+      },
+    ],
+    queueItems,
+  });
+
+  assert.equal(
+    attendantReport.find((entry) => entry.profile.id === "profile-1")?.calledCount,
+    1,
+  );
+  assert.equal(
+    attendantReport.find((entry) => entry.profile.id === "profile-2")?.canceledCount,
+    1,
+  );
 });

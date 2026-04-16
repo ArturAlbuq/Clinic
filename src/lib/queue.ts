@@ -629,21 +629,25 @@ function getQueueItemCountingEndMs(
 export function getQueueWaitMinutes(
   item: Pick<
     QueueItemRecord,
-    "created_at" | "reactivated_at" | "return_pending_at"
+    "called_at" | "created_at" | "reactivated_at" | "return_pending_at"
   > & {
     attendance?: Pick<AttendanceRecord, "created_at" | "return_pending_at"> | null;
   },
   nowMs = Date.now(),
 ) {
-  const diff =
-    getQueueItemCountingEndMs(item, nowMs) -
-    new Date(getQueueItemQueueStartAt(item)).getTime();
+  // Se o paciente já foi chamado, o tempo de espera congela em called_at.
+  const endMs = item.called_at
+    ? new Date(item.called_at).getTime()
+    : getQueueItemCountingEndMs(item, nowMs);
+
+  const diff = endMs - new Date(getQueueItemQueueStartAt(item)).getTime();
   return Math.max(0, Math.floor(diff / 60000));
 }
 
 export function getQueueStageWaitMinutes(
   item: Pick<
     QueueItemRecord,
+    | "called_at"
     | "canceled_at"
     | "created_at"
     | "reactivated_at"
@@ -754,7 +758,7 @@ export function getAttendanceTotalMinutes(
 export function isQueueItemNew(
   item: Pick<
     QueueItemRecord,
-    "created_at" | "reactivated_at" | "return_pending_at" | "status"
+    "called_at" | "created_at" | "reactivated_at" | "return_pending_at" | "status"
   > & {
     attendance?: Pick<AttendanceRecord, "created_at" | "return_pending_at"> | null;
   },
@@ -786,7 +790,7 @@ export function getNextStatusLabel(status: QueueStatus) {
     case "chamado":
       return "Iniciar exame";
     case "em_atendimento":
-      return "Concluir etapa";
+      return "Concluir exame";
     default:
       return null;
   }

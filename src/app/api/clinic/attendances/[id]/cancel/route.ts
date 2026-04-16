@@ -55,7 +55,7 @@ function mapCancelAttendanceError(message?: string | null) {
 
   if (message.includes("atendimento sem etapas abertas")) {
     return {
-      error: "Atendimento sem etapas abertas para cancelamento.",
+      error: "Atendimento sem exames abertos para cancelamento.",
       status: 409,
     };
   }

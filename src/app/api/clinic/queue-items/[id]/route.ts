@@ -13,6 +13,7 @@ import { getAdminSupabaseClient } from "@/lib/supabase/admin";
 type UpdateQueueItemBody = {
   action?: "cancel" | "return-pending";
   isPending?: boolean;
+  notes?: string;
   reason?: string;
   status?: QueueStatus;
 };
@@ -56,18 +57,18 @@ function normalizeMutationPayload(payload: QueueItemMutationPayload) {
 
 function mapCancelQueueItemError(message?: string | null) {
   if (!message) {
-    return { error: "Nao foi possivel cancelar a etapa.", status: 400 };
+    return { error: "Nao foi possivel cancelar o exame.", status: 400 };
   }
 
   if (message.includes("Could not find the function public.cancel_queue_item")) {
     return {
-      error: "Cancelamento por etapa indisponivel ate atualizar o banco.",
+      error: "Cancelamento por exame indisponivel ate atualizar o banco.",
       status: 503,
     };
   }
 
   if (message.includes("etapa nao encontrada")) {
-    return { error: "Etapa nao encontrada.", status: 404 };
+    return { error: "Exame nao encontrado.", status: 404 };
   }
 
   if (message.includes("sem permissao")) {
@@ -79,10 +80,10 @@ function mapCancelQueueItemError(message?: string | null) {
   }
 
   if (message.includes("etapa sem cancelamento disponivel")) {
-    return { error: "Essa etapa nao pode mais ser cancelada.", status: 409 };
+    return { error: "Esse exame nao pode mais ser cancelado.", status: 409 };
   }
 
-  return { error: "Nao foi possivel cancelar a etapa.", status: 400 };
+  return { error: "Nao foi possivel cancelar o exame.", status: 400 };
 }
 
 function isMissingCancelQueueItemRpc(message?: string | null) {
@@ -105,13 +106,13 @@ function mapQueueItemReturnPendingError(message?: string | null) {
     )
   ) {
     return {
-      error: "Pendencia por etapa indisponivel ate atualizar o banco.",
+      error: "Pendencia por exame indisponivel ate atualizar o banco.",
       status: 503,
     };
   }
 
   if (message.includes("etapa nao encontrada")) {
-    return { error: "Etapa nao encontrada.", status: 404 };
+    return { error: "Exame nao encontrado.", status: 404 };
   }
 
   if (message.includes("sem permissao")) {
@@ -124,7 +125,7 @@ function mapQueueItemReturnPendingError(message?: string | null) {
 
   if (message.includes("etapa sem pendencia")) {
     return {
-      error: "Essa etapa nao pode ser movida para pendencia de retorno.",
+      error: "Esse exame nao pode ser movido para pendencia de retorno.",
       status: 409,
     };
   }
@@ -243,7 +244,7 @@ async function runDirectQueueItemCancellation(
       currentItemResult.error,
     );
 
-    return NextResponse.json({ error: "Etapa nao encontrada." }, { status: 404 });
+    return NextResponse.json({ error: "Exame nao encontrado." }, { status: 404 });
   }
 
   if (
@@ -251,7 +252,7 @@ async function runDirectQueueItemCancellation(
     currentItemResult.queueItem.status === "cancelado"
   ) {
     return NextResponse.json(
-      { error: "Essa etapa nao pode mais ser cancelada." },
+      { error: "Esse exame nao pode mais ser cancelado." },
       { status: 409 },
     );
   }
@@ -277,13 +278,13 @@ async function runDirectQueueItemCancellation(
       message.includes("schema cache")
     ) {
       return NextResponse.json(
-        { error: "Cancelamento por etapa indisponivel ate atualizar o banco." },
+        { error: "Cancelamento por exame indisponivel ate atualizar o banco." },
         { status: 503 },
       );
     }
 
     return NextResponse.json(
-      { error: "Nao foi possivel cancelar a etapa." },
+      { error: "Nao foi possivel cancelar o exame." },
       { status: 400 },
     );
   }
@@ -385,7 +386,7 @@ async function runLegacyAttendanceReturnPending(
     );
 
     return NextResponse.json(
-      { error: "Nao foi possivel carregar a etapa atualizada." },
+      { error: "Nao foi possivel carregar o exame atualizado." },
       { status: 400 },
     );
   }
@@ -421,7 +422,7 @@ async function runDirectReceptionReturnPending(
       currentItemResult.error,
     );
 
-    return NextResponse.json({ error: "Etapa nao encontrada." }, { status: 404 });
+    return NextResponse.json({ error: "Exame nao encontrado." }, { status: 404 });
   }
 
   if (
@@ -429,7 +430,7 @@ async function runDirectReceptionReturnPending(
     currentItemResult.queueItem.status === "cancelado"
   ) {
     return NextResponse.json(
-      { error: "Essa etapa nao pode ser movida para pendencia de retorno." },
+      { error: "Esse exame nao pode ser movido para pendencia de retorno." },
       { status: 409 },
     );
   }
@@ -496,7 +497,7 @@ async function runDirectReceptionReturnPending(
         );
 
         return NextResponse.json(
-          { error: "Nao foi possivel carregar a etapa atualizada." },
+          { error: "Nao foi possivel carregar o exame atualizado." },
           { status: 400 },
         );
       }

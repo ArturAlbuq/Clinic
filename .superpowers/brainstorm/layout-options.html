@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opções de Layout - Recepção</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            padding: 40px 20px;
+            color: #1e293b;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #64748b; margin-bottom: 40px; font-size: 16px; }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .option-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .option-card:hover {
+            border-color: #0891b2;
+            box-shadow: 0 10px 30px rgba(6, 182, 212, 0.1);
+        }
+
+        .option-card.selected {
+            border-color: #0891b2;
+            background: #ecf5f7;
+        }
+
+        .option-label {
+            display: inline-block;
+            background: #0891b2;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+
+        .option-card h3 { font-size: 20px; margin-bottom: 10px; }
+        .option-card p { color: #64748b; font-size: 14px; line-height: 1.5; margin-bottom: 15px; }
+
+        .mockup {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 20px 0 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        .pros, .cons {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .pros { background: #f0fdf4; border-left: 4px solid #22c55e; }
+        .cons { background: #fef2f2; border-left: 4px solid #ef4444; }
+
+        .pros h4, .cons h4 { font-weight: 600; margin-bottom: 8px; }
+        .pros ul, .cons ul { margin-left: 20px; }
+        .pros li, .cons li { margin-bottom: 5px; }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
+        .indicator {
+            margin-top: 20px;
+            padding: 12px;
+            background: #e0f2fe;
+            border-radius: 8px;
+            border-left: 4px solid #0284c7;
+            font-size: 12px;
+            color: #0c4a6e;
+        }
+
+        .selected .indicator {
+            background: #dcfce7;
+            border-color: #22c55e;
+            color: #166534;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Três opções de layout compactado para a Recepção</h1>
+        <p class="subtitle">Mantendo o formulário "Cadastro rápido por exame" inteiro e compactando a lista de atendimentos</p>
+
+        <div class="options-grid" id="options">
+            <!-- OPÇÃO A -->
+            <div class="option-card" onclick="toggleSelect(this)">
+                <div class="option-label">OPÇÃO A</div>
+                <h3>Tabela com linhas finas</h3>
+                <p>Lista como mini-tabela: cada atendimento em uma linha com apenas essencial (nome, status, ações). Clique para expandir e ver exames.</p>
+
+                <div class="mockup">
+│ Nome                    │ Status      │ Exames │
+├─────────────────────────┼─────────────┼────────┤
+│ Maria Aparecida (P1)    │ Aguardando  │ 2/2    │
+│ João Silva (Norm)       │ Em andamento│ 1/3    │
+│ Ana Costa (P2)          │ Finalizado  │ 3/3    │
+                </div>
+
+                <div class="section-title">Prós</div>
+                <div class="pros">
+                    <ul>
+                        <li>Muitos atendimentos visíveis por vez</li>
+                        <li>Busca/filtro rápido em grid</li>
+                        <li>Layout compacto classicamente entendível</li>
+                    </ul>
+                </div>
+
+                <div class="section-title">Contras</div>
+                <div class="cons">
+                    <ul>
+                        <li>Pode parecer muito "corporativo" para recepção</li>
+                        <li>Número de cadastro e notas precisam de expansão</li>
+                        <li>Difícil ver prioridade no grid</li>
+                    </ul>
+                </div>
+
+                <div class="indicator">Clique aqui para selecionar esta opção</div>
+            </div>
+
+            <!-- OPÇÃO B -->
+            <div class="option-card" onclick="toggleSelect(this)">
+                <div class="option-label">OPÇÃO B</div>
+                <h3>Pill/Badge compacto com expansão</h3>
+                <p>Cada atendimento é um "pill" pequeno (altura ~60px) mostrando: Nome, Prioridade (cor), Status badge, progresso dos exames. Clique para expandir detalhes.</p>
+
+                <div class="mockup">
+┌─ Maria Aparecida (P1) ⚡ │ ⏳ Aguardando │ 2/2 ─┐
+└────────────────────────────────────────────────┘
+┌─ João Silva (Normal)  📄 │ ➡️ Em andamento │ 1/3 ┐
+└────────────────────────────────────────────────┘
+                </div>
+
+                <div class="section-title">Prós</div>
+                <div class="pros">
+                    <ul>
+                        <li>Visual moderno e leve</li>
+                        <li>Compacto mas informativo</li>
+                        <li>Prioridade clara por ícone/cor</li>
+                        <li>Scrollable facilmente</li>
+                    </ul>
+                </div>
+
+                <div class="section-title">Contras</div>
+                <div class="cons">
+                    <ul>
+                        <li>Menos informação por item</li>
+                        <li>Pode parecer "minimalista demais"</li>
+                        <li>Filtros precisam estar visíveis sempre</li>
+                    </ul>
+                </div>
+
+                <div class="indicator">Clique aqui para selecionar esta opção</div>
+            </div>
+
+            <!-- OPÇÃO C -->
+            <div class="option-card" onclick="toggleSelect(this)">
+                <div class="option-label">OPÇÃO C</div>
+                <h3>Card "horizontal resumido"</h3>
+                <p>Cards com ~80px de altura. Header: Nome + prioridade em cor. Subtitle: status + progresso. Footer: ícone ⋯ para expandir. Mantém "ar" visual mas ocupa menos espaço.</p>
+
+                <div class="mockup">
+┏━ Maria Aparecida ⭐ P1
+┣ Aguardando | 2/2 exames
+┗ [Expandir ⋯]
+
+┏━ João Silva
+┣ Em andamento | 1/3 exames
+┗ [Expandir ⋯]
+                </div>
+
+                <div class="section-title">Prós</div>
+                <div class="pros">
+                    <ul>
+                        <li>Balanço entre compacto e informativo</li>
+                        <li>Mantém visual atual (cards)</li>
+                        <li>Fácil de scrollar</li>
+                        <li>Muitos itens visíveis ao mesmo tempo</li>
+                    </ul>
+                </div>
+
+                <div class="section-title">Contras</div>
+                <div class="cons">
+                    <ul>
+                        <li>Ainda precisa reduzir a altura original</li>
+                        <li>Número de cadastro sai do resumido</li>
+                    </ul>
+                </div>
+
+                <div class="indicator">Clique aqui para selecionar esta opção</div>
+            </div>
+        </div>
+
+        <div style="background: #f0fdf4; padding: 20px; border-radius: 12px; margin-top: 40px; border-left: 4px solid #22c55e;">
+            <p><strong>💡 Recomendação:</strong> A <strong>Opção C</strong> mantém a identidade visual do projeto (cards), reduz altura significativamente, e permite expansão de detalhes sem quebrar o fluxo operacional.</p>
+        </div>
+    </div>
+
+    <script>
+        function toggleSelect(card) {
+            document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+        }
+    </script>
+</body>
+</html>
