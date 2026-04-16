@@ -264,18 +264,17 @@ export function ReceptionDashboard({
 
   return (
     <div className="space-y-6">
-      <ReceptionHeader
-        isToday={isToday}
-        selectedDate={selectedDate}
-        realtimeStatus={realtimeStatus}
-        realtimeError={realtimeError}
-      />
+      <section className="space-y-6">
+        <ReceptionHeader
+          isToday={isToday}
+          selectedDate={selectedDate}
+          realtimeStatus={realtimeStatus}
+          realtimeError={realtimeError}
+        />
 
-      <section className="grid gap-4 xl:grid-cols-[1.05fr_1.35fr]">
         <div className="app-panel rounded-[30px] px-6 py-6">
-
           {isToday ? (
-            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <PatientSection
                 patientName={patientName}
                 patientRegistrationNumber={patientRegistrationNumber}
@@ -319,37 +318,46 @@ export function ReceptionDashboard({
               </button>
             </form>
           ) : (
-            <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50/70 px-5 py-5 text-sm text-amber-900">
+            <div className="rounded-[24px] border border-amber-200 bg-amber-50/70 px-5 py-5 text-sm text-amber-900">
               Os cadastros ficam bloqueados fora do dia atual para evitar lancamentos operacionais no recorte errado.
             </div>
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-5 gap-4">
           <MetricCard
             label="Aguardando"
             value={String(totalWaiting)}
-            helper="Atendimentos sem exame iniciado."
+            helper="pacientes na fila"
             accent="amber"
             compact
           />
           <MetricCard
-            label="Em andamento"
-            value={String(totalInProgress)}
-            helper="Atendimentos com algum exame em fluxo."
+            label="Chamados"
+            value={String(0)}
+            helper="aguardando entrada"
             accent="teal"
             compact
           />
           <MetricCard
-            label="Finalizados"
-            value={String(totalFinished)}
-            helper="Atendimentos com todos os exames concluidos."
+            label="Em exame"
+            value={String(totalInProgress)}
+            helper="em atendimento agora"
+            accent="teal"
             compact
           />
           <MetricCard
-            label="Cancelados"
-            value={String(totalCanceled)}
-            helper="Atendimentos encerrados com motivo registrado."
+            label="Salas ocupadas"
+            value={String(0)}
+            helper="de 4 salas"
+            accent="slate"
+            compact
+          />
+          <MetricCard
+            label="Salas livres"
+            value={String(4)}
+            helper="disponíveis agora"
+            accent="slate"
             compact
           />
         </div>
