@@ -524,15 +524,33 @@ export function ReceptionDashboard({
         </div>
 
         {filteredAttendances.length ? (
-          <div className="mt-6 space-y-3">
-            {filteredAttendances.map((attendance) => (
-              <AttendanceRow
-                key={attendance.id}
-                attendance={attendance}
-                isToday={isToday}
-                onQueueItemMutation={applyQueueItemMutation}
-              />
-            ))}
+          <div className="mt-6 space-y-0">
+            {filteredAttendances.map((attendance) => {
+              const isExpanded = expandedId === attendance.id;
+              return (
+                <div key={attendance.id}>
+                  <AttendanceRowCompact
+                    attendance={attendance}
+                    onExpandClick={() =>
+                      setExpandedId(isExpanded ? null : attendance.id)
+                    }
+                  />
+                  {isExpanded && (
+                    <AttendanceRowExpanded
+                      attendance={attendance}
+                      isToday={isToday}
+                      onQueueItemMutation={(updatedAttendance, updatedItem, updatedQueueItems) => {
+                        applyQueueItemMutation(
+                          updatedAttendance,
+                          updatedItem,
+                          updatedQueueItems,
+                        );
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="mt-6">
@@ -543,108 +561,6 @@ export function ReceptionDashboard({
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-function AttendanceRow({
-  attendance,
-  isToday,
-  onQueueItemMutation,
-}: {
-  attendance: AttendanceWithQueueItems;
-  isToday: boolean;
-  onQueueItemMutation: (
-    updatedAttendance: AttendanceRecord,
-    updatedItem: QueueItemRecord,
-    updatedQueueItems?: QueueItemRecord[],
-  ) => void;
-}) {
-  const overallStatus = getAttendanceOverallStatus(attendance, attendance.queueItems);
-  const completedSteps = attendance.queueItems.filter(
-    (item) => item.status === "finalizado",
-  ).length;
-  const requestedQuantity = attendance.queueItems.reduce(
-    (total, item) => total + item.requested_quantity,
-    0,
-  );
-  const actionableItems = attendance.canceled_at
-    ? []
-    : sortAttendanceQueueItemsByFlow(attendance.queueItems).filter(
-        (item) => item.status !== "finalizado" && item.status !== "cancelado",
-      );
-
-  return (
-    <div className="rounded-[24px] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_18px_32px_rgba(15,23,42,0.04)]">
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.7fr_0.8fr] lg:items-start">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-lg font-semibold text-slate-950">
-              {attendance.patient_name}
-            </p>
-            <PriorityBadge priority={attendance.priority} />
-            <AttendanceOverallBadge status={overallStatus} />
-          </div>
-          <p className="mt-1 text-sm text-slate-600">
-            {attendance.notes || "Sem observacao"}
-          </p>
-          {attendance.patient_registration_number ? (
-            <p className="mt-2 text-sm font-medium text-cyan-800">
-              Cadastro {attendance.patient_registration_number}
-            </p>
-          ) : null}
-          {attendance.cancellation_reason ? (
-            <p className="mt-2 text-sm font-medium text-rose-700">
-              Motivo do cancelamento: {attendance.cancellation_reason}
-            </p>
-          ) : null}
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Entrada
-          </p>
-          <p className="mt-1 font-mono text-sm text-slate-700">
-            {formatClock(attendance.created_at)}
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            {requestedQuantity} exame{requestedQuantity === 1 ? "" : "s"} solicitados
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Andamento
-          </p>
-          <p className="mt-1 text-sm text-slate-700">
-            {completedSteps} de {attendance.queueItems.length} etapas concluidas
-          </p>
-          {attendance.canceled_at ? (
-            <p className="mt-2 text-sm text-slate-600">
-              Cancelado em {formatDateTime(attendance.canceled_at)}
-            </p>
-          ) : null}
-        </div>
-      </div>
-      <div className="mt-4 border-t border-slate-100 pt-4">
-        <AttendanceTimeline items={attendance.queueItems} title="Exames do atendimento" />
-      </div>
-      {actionableItems.length ? (
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Acoes por etapa
-          </p>
-          <div className="mt-3 grid gap-3">
-            {actionableItems.map((item) => (
-              <ReceptionReturnActionCard
-                key={item.id}
-                attendance={attendance}
-                isToday={isToday}
-                item={item}
-                onQueueItemMutation={onQueueItemMutation}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
