@@ -14,7 +14,7 @@ export function PatientSection({
   onRegistrationNumberChange,
 }: PatientSectionProps) {
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <label className="block col-span-2">
         <span className="mb-2 block text-sm font-semibold text-slate-700">
           Nome do paciente

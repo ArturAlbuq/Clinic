@@ -23,7 +23,7 @@ export function PriorityNotesSection({
   onNotesChange,
 }: PriorityNotesSectionProps) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <label className="block">
         <span className="mb-2 block text-sm font-semibold text-slate-700">
           Prioridade
