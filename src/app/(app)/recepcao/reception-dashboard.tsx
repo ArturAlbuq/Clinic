@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { AttendanceTimeline } from "@/components/attendance-timeline";
+import { AttendanceRowCompact } from "@/components/attendance-row-compact";
+import { AttendanceRowExpanded } from "@/components/attendance-row-expanded";
 import { DayFilterControls } from "@/components/day-filter-controls";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
@@ -100,6 +102,7 @@ export function ReceptionDashboard({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const groupedAttendances = useMemo(() => {
     const grouped = groupAttendancesWithQueueItems(attendances, queueItems);
