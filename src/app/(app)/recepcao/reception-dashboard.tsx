@@ -13,6 +13,7 @@ import { ReceptionReturnActionCard } from "@/components/reception-return-action-
 import { StatusBadge } from "@/components/status-badge";
 import { PatientSection } from "./patient-section";
 import { ExamsSection } from "./exams-section";
+import { PriorityNotesSection } from "./priority-notes-section";
 import {
   ATTENDANCE_STATUS_LABELS,
   EXAM_LABELS,
@@ -64,12 +65,6 @@ const FILTER_LABELS: Record<StatusFilter, string> = {
   finalizado: "Finalizado",
   cancelado: "Cancelado",
 };
-
-const PRIORITY_OPTIONS: AttendancePriority[] = [
-  "normal",
-  "sessenta_mais_outras",
-  "oitenta_mais",
-];
 
 export function ReceptionDashboard({
   initialAttendances,
@@ -313,37 +308,12 @@ export function ReceptionDashboard({
                 onUpdateExamQuantity={updateExamQuantity}
               />
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">
-                  Prioridade
-                </span>
-                <select
-                  value={priority}
-                  onChange={(event) =>
-                    setPriority(event.target.value as AttendancePriority)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                >
-                  {PRIORITY_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {PRIORITY_LABELS[option]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">
-                  Observacao
-                </span>
-                <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows={4}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                  placeholder="Opcional. Ex.: encaixe, retorno, prioridade clinica."
-                />
-              </label>
+              <PriorityNotesSection
+                priority={priority}
+                notes={notes}
+                onPriorityChange={setPriority}
+                onNotesChange={setNotes}
+              />
 
               {formError ? (
                 <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
