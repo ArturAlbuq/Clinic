@@ -1,12 +1,13 @@
 import { RealtimeStatusBadge } from "@/components/realtime-status";
 import { DayFilterControls } from "@/components/day-filter-controls";
 import { formatDate } from "@/lib/date";
+import type { RealtimeStatus } from "@/lib/constants";
 
 type ReceptionHeaderProps = {
   isToday: boolean;
   selectedDate: string;
-  realtimeStatus: "connected" | "disconnected" | "reconnecting";
-  realtimeError: string | null;
+  realtimeStatus: RealtimeStatus;
+  realtimeError?: string;
 };
 
 export function ReceptionHeader({
