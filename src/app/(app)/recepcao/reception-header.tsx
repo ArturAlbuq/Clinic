@@ -34,17 +34,6 @@ export function ReceptionHeader({
         </div>
         <div className="text-right flex flex-col items-end gap-4">
           <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Data em foco
-            </p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-              {formatDate(selectedDate)}
-            </p>
-            <p className="mt-1 text-sm text-slate-600">
-              {isToday ? "Hoje" : "Histórico"}
-            </p>
-          </div>
         </div>
       </div>
 

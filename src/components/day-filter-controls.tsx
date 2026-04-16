@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { formatDate, formatDateInputValue, shiftClinicDate } from "@/lib/date";
+import { formatDateInputValue, shiftClinicDate } from "@/lib/date";
 
 type DayFilterControlsProps = {
   historyMessage?: string;
@@ -55,9 +55,6 @@ export function DayFilterControls({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700">
-          {formatDate(selectedDate)}
-        </span>
         <span
           className={
             isToday
