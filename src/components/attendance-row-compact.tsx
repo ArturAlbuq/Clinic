@@ -27,7 +27,7 @@ export function AttendanceRowCompact({
     <button
       type="button"
       onClick={onExpandClick}
-      className="w-full text-left rounded-[16px] border border-slate-200 bg-white/85 px-[14px] py-[14px] shadow-[0_18px_32px_rgba(15,23,42,0.04)] hover:border-cyan-500 hover:bg-emerald-50 transition-all"
+      className="w-full text-left rounded-[16px] border border-slate-200 bg-white/85 px-[14px] py-[14px] mb-[10px] shadow-[0_18px_32px_rgba(15,23,42,0.04)] hover:border-cyan-500 hover:bg-emerald-50 transition-all"
     >
       <div className="grid gap-2">
         {/* Top line: Name, Priority, Status */}
