@@ -19,7 +19,9 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://zyzlrilkqukcgyjztbmb.supabase.co/rest/v1/profiles?select=id,full_name,role&role=eq.gerencia\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5emxyaWxrcXVrY2d5anp0Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTU3ODIsImV4cCI6MjA5MDQ5MTc4Mn0.g2axbwdcHyAMRalIsLM39Cwubd6Es55LTTrGtuj_aOw\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5emxyaWxrcXVrY2d5anp0Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTU3ODIsImV4cCI6MjA5MDQ5MTc4Mn0.g2axbwdcHyAMRalIsLM39Cwubd6Es55LTTrGtuj_aOw\")",
       "Bash(grep -n \"patient_name.*patient_registration\" src/app/'\\(app\\)'/recepcao/*.tsx)",
       "Bash(scripts/start-server.sh --project-dir \"c:\\\\Users\\\\User\\\\3D Objects\\\\Clinic\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(curl -s http://localhost:3000/recepcao)"
     ]
   }
 }

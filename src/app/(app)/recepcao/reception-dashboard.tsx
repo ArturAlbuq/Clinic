@@ -461,28 +461,32 @@ export function ReceptionDashboard({
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <MetricCard
             label="Aguardando"
             value={String(totalWaiting)}
             helper="Atendimentos sem exame iniciado."
             accent="amber"
+            compact
           />
           <MetricCard
             label="Em andamento"
             value={String(totalInProgress)}
             helper="Atendimentos com algum exame em fluxo."
             accent="teal"
+            compact
           />
           <MetricCard
             label="Finalizados"
             value={String(totalFinished)}
             helper="Atendimentos com todos os exames concluidos."
+            compact
           />
           <MetricCard
             label="Cancelados"
             value={String(totalCanceled)}
             helper="Atendimentos encerrados com motivo registrado."
+            compact
           />
         </div>
       </section>
