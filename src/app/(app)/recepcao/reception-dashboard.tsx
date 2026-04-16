@@ -265,16 +265,16 @@ export function ReceptionDashboard({
   return (
     <div className="space-y-6">
       <section className="space-y-6">
-        <ReceptionHeader
-          isToday={isToday}
-          selectedDate={selectedDate}
-          realtimeStatus={realtimeStatus}
-          realtimeError={realtimeError}
-        />
-
         <div className="app-panel rounded-[30px] px-6 py-6">
+          <ReceptionHeader
+            isToday={isToday}
+            selectedDate={selectedDate}
+            realtimeStatus={realtimeStatus}
+            realtimeError={realtimeError}
+          />
+
           {isToday ? (
-            <form className="space-y-4" onSubmit={handleSubmit}>
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
               <PatientSection
                 patientName={patientName}
                 patientRegistrationNumber={patientRegistrationNumber}
@@ -318,7 +318,7 @@ export function ReceptionDashboard({
               </button>
             </form>
           ) : (
-            <div className="rounded-[24px] border border-amber-200 bg-amber-50/70 px-5 py-5 text-sm text-amber-900">
+            <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50/70 px-5 py-5 text-sm text-amber-900">
               Os cadastros ficam bloqueados fora do dia atual para evitar lancamentos operacionais no recorte errado.
             </div>
           )}
