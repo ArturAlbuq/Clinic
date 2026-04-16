@@ -4,13 +4,12 @@ import { useMemo, useState } from "react";
 import { AttendanceTimeline } from "@/components/attendance-timeline";
 import { AttendanceRowCompact } from "@/components/attendance-row-compact";
 import { AttendanceRowExpanded } from "@/components/attendance-row-expanded";
-import { DayFilterControls } from "@/components/day-filter-controls";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityBadge } from "@/components/priority-badge";
-import { RealtimeStatusBadge } from "@/components/realtime-status";
 import { ReceptionReturnActionCard } from "@/components/reception-return-action-card";
 import { StatusBadge } from "@/components/status-badge";
+import { ReceptionHeader } from "./reception-header";
 import { PatientSection } from "./patient-section";
 import { ExamsSection } from "./exams-section";
 import { PriorityNotesSection } from "./priority-notes-section";
@@ -265,31 +264,15 @@ export function ReceptionDashboard({
 
   return (
     <div className="space-y-6">
+      <ReceptionHeader
+        isToday={isToday}
+        selectedDate={selectedDate}
+        realtimeStatus={realtimeStatus}
+        realtimeError={realtimeError}
+      />
+
       <section className="grid gap-4 xl:grid-cols-[1.05fr_1.35fr]">
         <div className="app-panel rounded-[30px] px-6 py-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
-                Recepcao
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                Cadastro rapido por exame
-              </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-                {isToday
-                  ? "A recepcao escolhe os exames, informa a quantidade quando fizer sentido e o sistema direciona cada exame para a sala correta."
-                  : `Consulta dos registros de ${formatDate(selectedDate)}. O cadastro rapido fica liberado apenas no dia atual.`}
-              </p>
-            </div>
-            <RealtimeStatusBadge error={realtimeError} status={realtimeStatus} />
-          </div>
-
-          <div className="mt-6">
-            <DayFilterControls
-              historyMessage="Modo consulta ativo. Para cadastrar novos pacientes, volte para Hoje."
-              selectedDate={selectedDate}
-            />
-          </div>
 
           {isToday ? (
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
