@@ -21,7 +21,11 @@
       "Bash(scripts/start-server.sh --project-dir \"c:\\\\Users\\\\User\\\\3D Objects\\\\Clinic\")",
       "Bash(npm run *)",
       "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
-      "Bash(curl -s http://localhost:3000/recepcao)"
+      "Bash(curl -s http://localhost:3000/recepcao)",
+      "Bash(grep -E \"\\\\.sql$\")",
+      "Bash(curl -s http://localhost:3000/login)",
+      "Bash(rm -f brainstorm-layout-options.html design-preview.html CODEX_PROMPT.md)",
+      "Bash(ls -la *.html *.md)"
     ]
   }
 }
