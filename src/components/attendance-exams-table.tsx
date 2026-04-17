@@ -81,7 +81,7 @@ function TableRow({
   profileMap: Map<string, ProfileRecord>;
 }) {
   const attendantName = getAttendantName(item.started_by, profileMap);
-  const executionTime = getExecutionTimeLabel(item.started_at, item.finished_at);
+  const executionTime = getExecutionTimeLabel(item.started_at, item.finished_at, item.return_pending_at);
   const statusLabel = STATUS_LABELS[item.status];
 
   return (
@@ -116,7 +116,7 @@ function MobileCard({
   profileMap: Map<string, ProfileRecord>;
 }) {
   const attendantName = getAttendantName(item.started_by, profileMap);
-  const executionTime = getExecutionTimeLabel(item.started_at, item.finished_at);
+  const executionTime = getExecutionTimeLabel(item.started_at, item.finished_at, item.return_pending_at);
   const statusLabel = STATUS_LABELS[item.status];
   const cardBgClass = getCardBackgroundClass(item.status);
   const borderClass = getCardBorderClass(item.status);
@@ -188,8 +188,12 @@ function getAttendantName(
 
 function getExecutionTimeLabel(
   startedAt: string | null,
-  finishedAt: string | null
+  finishedAt: string | null,
+  returnPendingAt: string | null
 ): string {
+  // Se está pendente de retorno, não contar tempo (está aguardando retorno, não foi finalizado)
+  if (returnPendingAt) return "Pendente";
+
   if (!startedAt || !finishedAt) return "Pendente";
 
   const startTime = new Date(startedAt).getTime();
