@@ -7,6 +7,7 @@ import { DayFilterControls } from "@/components/day-filter-controls";
 import { EmptyState } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
 import { PwaInstallControl } from "@/components/pwa-install-control";
+import { RepeatExamModal } from "@/components/repeat-exam-modal";
 import { RealtimeStatusBadge } from "@/components/realtime-status";
 import { StatusBadge } from "@/components/status-badge";
 import { useAttentionAlert } from "@/hooks/use-attention-alert";
@@ -82,6 +83,9 @@ export function RoomQueueBoard({
   const [returnReason, setReturnReason] = useState("");
   const [returnError, setReturnError] = useState("");
   const [returnMutationItemId, setReturnMutationItemId] = useState<string | null>(null);
+  const [repeatExamItemId, setRepeatExamItemId] = useState<string | null>(null);
+  const [repeatExamLoading, setRepeatExamLoading] = useState(false);
+  const [repeatExamError, setRepeatExamError] = useState("");
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setNowMs(Date.now()));
@@ -233,6 +237,44 @@ export function RoomQueueBoard({
     setPendingReturnItemId(null);
     setReturnReason("");
     setReturnMutationItemId(null);
+  }
+
+  async function submitRepeatExam(queueItemId: string, reason: string) {
+    setRepeatExamError("");
+    setRepeatExamLoading(true);
+
+    // TODO: Codex - Implement API call to POST /api/clinic/queue-items/{queueItemId}/repeat-exam
+    // Expected body: { reason: string }
+    // Expected response: { error?: string; success?: boolean }
+    // On success: show confirmation, close modal, refresh queue items via realtime
+    // On error: set repeatExamError and keep modal open
+
+    try {
+      const response = await fetch(`/api/clinic/queue-items/${queueItemId}/repeat-exam`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({ reason }),
+      });
+
+      const payload = (await readJsonResponse<{
+        error?: string;
+        success?: boolean;
+      }>(response)) ?? {};
+
+      if (!response.ok || !payload.success) {
+        setRepeatExamError(payload.error || "Nao foi possivel registrar a repeticao do exame.");
+        return;
+      }
+
+      setRepeatExamItemId(null);
+      setRepeatExamLoading(false);
+    } catch (err) {
+      setRepeatExamError("Erro ao registrar repeticao. Tente novamente.");
+      setRepeatExamLoading(false);
+    }
   }
 
   const waitingCount = visibleItems.filter(
@@ -457,24 +499,38 @@ export function RoomQueueBoard({
                   )}
 
                   {item.status !== "finalizado" ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReturnError("");
-                        setPendingReturnItemId((current) =>
-                          current === item.id ? null : item.id,
-                        );
-                        setReturnReason(
-                          item.return_pending_reason ??
-                            item.attendance?.return_pending_reason ??
-                            "",
-                        );
-                      }}
-                      disabled={!isToday}
-                      className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm font-semibold text-fuchsia-800 hover:bg-fuchsia-100"
-                    >
-                      {isToday ? "Marcar pendencia de retorno" : "Consulta historica"}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReturnError("");
+                          setPendingReturnItemId((current) =>
+                            current === item.id ? null : item.id,
+                          );
+                          setReturnReason(
+                            item.return_pending_reason ??
+                              item.attendance?.return_pending_reason ??
+                              "",
+                          );
+                        }}
+                        disabled={!isToday}
+                        className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-sm font-semibold text-fuchsia-800 hover:bg-fuchsia-100"
+                      >
+                        {isToday ? "Marcar pendencia de retorno" : "Consulta historica"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRepeatExamError("");
+                          setRepeatExamItemId(item.id);
+                        }}
+                        disabled={!isToday}
+                        className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700 hover:bg-orange-100"
+                      >
+                        {isToday ? "↻ Repetir Exame" : "Consulta historica"}
+                      </button>
+                    </>
                   ) : null}
                 </div>
 
@@ -536,6 +592,22 @@ export function RoomQueueBoard({
           description="Assim que a recepcao enviar um novo atendimento para esta fila, ele aparece aqui automaticamente."
         />
       )}
+
+      <RepeatExamModal
+        isOpen={repeatExamItemId !== null}
+        isLoading={repeatExamLoading}
+        error={repeatExamError}
+        onClose={() => {
+          setRepeatExamItemId(null);
+          setRepeatExamError("");
+        }}
+        onSubmit={(reason) => {
+          if (repeatExamItemId) {
+            return submitRepeatExam(repeatExamItemId, reason);
+          }
+          return Promise.resolve();
+        }}
+      />
 
       {returnPendingItems.length ? (
         <section className="app-panel rounded-[30px] px-6 py-6">
