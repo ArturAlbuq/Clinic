@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   isOpen: boolean;
@@ -12,27 +12,33 @@ type Props = {
 
 export function RepeatExamModal({ isOpen, isLoading, onClose, onSubmit, error }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const reasonRef = useRef("");
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     if (isOpen && textareaRef.current) {
       textareaRef.current.focus();
-      reasonRef.current = "";
-      textareaRef.current.value = "";
     }
   }, [isOpen]);
 
+  function handleClose() {
+    setReason("");
+    onClose();
+  }
+
   async function handleSubmit() {
-    const reason = (textareaRef.current?.value ?? "").trim();
-    if (reason.length < 3) {
+    const normalizedReason = reason.trim();
+
+    if (normalizedReason.length < 3) {
       return;
     }
-    await onSubmit(reason);
+
+    await onSubmit(normalizedReason);
+    setReason("");
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
-      onClose();
+      handleClose();
     }
   }
 
@@ -43,7 +49,7 @@ export function RepeatExamModal({ isOpen, isLoading, onClose, onSubmit, error }:
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose();
+          handleClose();
         }
       }}
     >
@@ -68,19 +74,21 @@ export function RepeatExamModal({ isOpen, isLoading, onClose, onSubmit, error }:
               ref={textareaRef}
               rows={4}
               maxLength={500}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
               onKeyDown={handleKeyDown}
               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder-slate-400 focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
               placeholder="Ex: Qualidade ruim, posicionamento incorreto, equipamento com falha..."
             />
             <p className="mt-2 text-xs text-slate-400">
-              {textareaRef.current?.value.length ?? 0}/500 caracteres
+              {reason.length}/500 caracteres
             </p>
           </div>
 
           <div className="mt-8 flex gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isLoading}
               className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -89,7 +97,7 @@ export function RepeatExamModal({ isOpen, isLoading, onClose, onSubmit, error }:
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isLoading || (textareaRef.current?.value.trim().length ?? 0) < 3}
+              disabled={isLoading || reason.trim().length < 3}
               className="flex-1 rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isLoading ? "Salvando..." : "Confirmar Repetição"}

@@ -46,7 +46,6 @@ import {
 } from "@/lib/date";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
-import { RepetitionsTab } from "@/components/repetitions-tab";
 import { RepetitionsReportTable } from "@/components/repetitions-report-table";
 import {
   getAttendanceOverallStatus,
@@ -112,20 +111,6 @@ export function AdminDashboard({
   const [patientSearchName, setPatientSearchName] = useState("");
   const [patientSearchRegistration, setPatientSearchRegistration] = useState("");
   const [nowMs, setNowMs] = useState(() => Date.now());
-
-  type RepetitionRecord = {
-    id: string;
-    queue_item_id: string;
-    exam_type: ExamType;
-    room_slug: string | null;
-    technician_id: string | null;
-    repeated_at: string;
-    repetition_reason?: string | null;
-    patient_name?: string;
-    patient_registration_number?: string;
-  };
-
-  const [repetitions, setRepetitions] = useState<RepetitionRecord[]>([]);
 
   const {
     attendances,
@@ -780,7 +765,7 @@ export function AdminDashboard({
           </section>
           </>
           ) : (
-            <RepetitionsReportTable repetitions={repetitions} profiles={profiles} rooms={rooms} />
+            <RepetitionsReportTable profiles={profiles} rooms={rooms} />
           )}
         </section>
       ) : (

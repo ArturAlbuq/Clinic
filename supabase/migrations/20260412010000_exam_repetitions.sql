@@ -24,6 +24,9 @@ create index if not exists exam_repetitions_room_slug_repeated_at_idx
 -- RLS
 alter table public.exam_repetitions enable row level security;
 
+drop policy if exists "exam_repetitions_select_admin"
+on public.exam_repetitions;
+
 create policy "exam_repetitions_select_admin"
 on public.exam_repetitions
 for select

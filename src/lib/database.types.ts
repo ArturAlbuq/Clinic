@@ -297,32 +297,32 @@ export interface Database {
         Row: {
           id: string;
           queue_item_id: string;
-          attendance_id: string;
           exam_type: ExamType;
           room_slug: string | null;
           technician_id: string | null;
           repeated_at: string;
           repetition_index: number;
+          repetition_reason: string | null;
         };
         Insert: {
           id?: string;
           queue_item_id: string;
-          attendance_id: string;
           exam_type: ExamType;
           room_slug?: string | null;
           technician_id?: string | null;
           repeated_at?: string;
           repetition_index: number;
+          repetition_reason?: string | null;
         };
         Update: {
           id?: string;
           queue_item_id?: string;
-          attendance_id?: string;
           exam_type?: ExamType;
           room_slug?: string | null;
           technician_id?: string | null;
           repeated_at?: string;
           repetition_index?: number;
+          repetition_reason?: string | null;
         };
         Relationships: [];
       };
@@ -376,6 +376,13 @@ export interface Database {
           p_is_pending: boolean;
           p_queue_item_id: string;
           p_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      register_exam_repetition: {
+        Args: {
+          p_queue_item_id: string;
+          p_reason: string;
         };
         Returns: Json;
       };

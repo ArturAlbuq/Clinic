@@ -140,10 +140,13 @@ export function useExamRepetitions(filters: ExamRepetitionsFilters): ExamRepetit
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
-    setError(null);
 
     async function fetchData() {
+      if (!cancelled) {
+        setIsLoading(true);
+        setError(null);
+      }
+
       const supabase = getBrowserSupabaseClient();
       if (!supabase) {
         if (!cancelled) {

@@ -243,12 +243,6 @@ export function RoomQueueBoard({
     setRepeatExamError("");
     setRepeatExamLoading(true);
 
-    // TODO: Codex - Implement API call to POST /api/clinic/queue-items/{queueItemId}/repeat-exam
-    // Expected body: { reason: string }
-    // Expected response: { error?: string; success?: boolean }
-    // On success: show confirmation, close modal, refresh queue items via realtime
-    // On error: set repeatExamError and keep modal open
-
     try {
       const response = await fetch(`/api/clinic/queue-items/${queueItemId}/repeat-exam`, {
         method: "POST",
@@ -270,9 +264,9 @@ export function RoomQueueBoard({
       }
 
       setRepeatExamItemId(null);
-      setRepeatExamLoading(false);
-    } catch (err) {
+    } catch {
       setRepeatExamError("Erro ao registrar repeticao. Tente novamente.");
+    } finally {
       setRepeatExamLoading(false);
     }
   }
