@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AttendanceExamsTable } from "@/components/attendance-exams-table";
 import { AttendanceTimeline } from "@/components/attendance-timeline";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
@@ -622,7 +623,7 @@ export function AdminDashboard({
             {searchAttendances.length ? (
               <div className="mt-6 space-y-3">
                 {searchAttendances.map((attendance) => (
-                  <PatientSearchCard key={attendance.id} attendance={attendance} />
+                  <PatientSearchCard key={attendance.id} attendance={attendance} profileMap={profileMap} />
                 ))}
               </div>
             ) : (
@@ -1756,7 +1757,13 @@ function RoomCard({ summary }: { summary: ReturnType<typeof buildRoomSummaries>[
   );
 }
 
-function PatientSearchCard({ attendance }: { attendance: AttendanceWithQueueItems }) {
+function PatientSearchCard({
+  attendance,
+  profileMap,
+}: {
+  attendance: AttendanceWithQueueItems;
+  profileMap: Map<string, ProfileRecord>;
+}) {
   const overallStatus = getAttendanceOverallStatus(attendance, attendance.queueItems);
   const orderedItems = sortAttendanceQueueItemsByFlow(attendance.queueItems);
   const requestedQuantity = attendance.queueItems.reduce(
@@ -1800,7 +1807,7 @@ function PatientSearchCard({ attendance }: { attendance: AttendanceWithQueueItem
           <p className="mb-4 text-sm text-slate-600">Observacao: {attendance.notes}</p>
         ) : null}
         {orderedItems.length ? (
-          <AttendanceTimeline items={orderedItems} title="Exames vinculados" />
+          <AttendanceExamsTable items={orderedItems} profileMap={profileMap} />
         ) : (
           <p className="text-sm text-slate-600">Sem exames vinculados neste atendimento.</p>
         )}
