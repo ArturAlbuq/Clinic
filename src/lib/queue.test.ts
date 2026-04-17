@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
 import {
+  getAttendanceTotalMinutes,
   getAttendanceOverallStatus,
   getNextStatus,
   getQueueStageExecutionMinutes,
@@ -324,4 +325,26 @@ test("tempos da etapa congelam enquanto retorno pendente estiver ativo", () => {
     getQueueStageTotalMinutes({ ...activeItem, attendance }, referenceNow),
     20,
   );
+});
+
+test("tempo total do atendimento congela enquanto retorno pendente estiver ativo", () => {
+  const pendingAt = "2026-03-25T10:20:00.000Z";
+  const referenceNow = new Date("2026-03-25T10:45:00.000Z").getTime();
+  const attendance = buildAttendance({
+    return_pending_at: pendingAt,
+  });
+  const queueItems = [
+    buildQueueItem({
+      finished_at: "2026-03-25T10:12:00.000Z",
+      status: "finalizado",
+    }),
+    buildQueueItem({
+      id: "queue-item-2",
+      return_pending_at: pendingAt,
+      started_at: "2026-03-25T10:05:00.000Z",
+      status: "em_atendimento",
+    }),
+  ];
+
+  assert.equal(getAttendanceTotalMinutes(attendance, queueItems, referenceNow), 20);
 });

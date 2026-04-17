@@ -723,8 +723,13 @@ export function getQueueStageTotalMinutes(
 }
 
 export function getAttendanceTotalMinutes(
-  attendance: Pick<AttendanceRecord, "created_at" | "canceled_at">,
-  queueItems: Array<Pick<QueueItemRecord, "finished_at" | "canceled_at">>,
+  attendance: Pick<
+    AttendanceRecord,
+    "created_at" | "canceled_at" | "return_pending_at"
+  >,
+  queueItems: Array<
+    Pick<QueueItemRecord, "canceled_at" | "finished_at" | "return_pending_at">
+  >,
   nowMs = Date.now(),
 ) {
   if (attendance.canceled_at) {
@@ -745,9 +750,17 @@ export function getAttendanceTotalMinutes(
   const allResolved =
     queueItems.length > 0 && resolvedQueueItems.length === queueItems.length;
 
+  const pausedAtCandidates = [
+    attendance.return_pending_at,
+    ...queueItems.map((item) => item.return_pending_at),
+  ].filter((value): value is string => Boolean(value));
+  const pausedAtMs = pausedAtCandidates.length
+    ? Math.min(...pausedAtCandidates.map((value) => new Date(value).getTime()))
+    : null;
+
   const endMs = allResolved
     ? Math.max(...resolvedQueueItems.map((value) => new Date(value).getTime()))
-    : nowMs;
+    : pausedAtMs ?? nowMs;
 
   return Math.max(
     0,
