@@ -220,36 +220,59 @@ export async function GET(request: Request) {
     }
   }
 
-  // Group by queue_item_id to count repetitions per item
-  const countByQueueItem = new Map<string, number>();
+  type RepetitionEntry = {
+    id: string;
+    repeated_at: string;
+    repetition_reason: string | null;
+    technician_id: string | null;
+  };
+
+  // Group by queue_item_id - each queue_item is a specific exam that can be repeated
+  const groupByQueueItem = new Map<string, ExamRepetitionRow[]>();
   for (const row of repetitionRows) {
-    const count = (countByQueueItem.get(row.queue_item_id) ?? 0) + 1;
-    countByQueueItem.set(row.queue_item_id, count);
+    const list = groupByQueueItem.get(row.queue_item_id) ?? [];
+    list.push(row);
+    groupByQueueItem.set(row.queue_item_id, list);
   }
 
-  const data = repetitionRows.map((row) => {
-    const queueItem = queueItemMap.get(row.queue_item_id);
-    const attendance = queueItem
-      ? attendanceMap.get(queueItem.attendance_id)
-      : undefined;
+  // Show only exams that were actually repeated (>= 1 registered repetition)
+  // Each exam_repetitions row is one repetition event
+  const data = Array.from(groupByQueueItem.entries())
+    .map(([queueItemId, rows]) => {
+      const latestRow = rows[0]; // sorted desc by repeated_at
+      const queueItem = queueItemMap.get(queueItemId);
+      const attendance = queueItem
+        ? attendanceMap.get(queueItem.attendance_id)
+        : undefined;
 
-    return {
-      exam_type: row.exam_type,
-      id: row.id,
-      patient_name: attendance?.patient_name ?? queueItem?.patient_name ?? null,
-      patient_registration_number:
-        attendance?.patient_registration_number ?? null,
-      queue_item_id: row.queue_item_id,
-      repeated_at: row.repeated_at,
-      repetition_reason: row.repetition_reason,
-      repetition_count: countByQueueItem.get(row.queue_item_id) ?? 1,
-      room_slug: row.room_slug,
-      technician_id: row.technician_id,
-    };
-  });
+      const repetitions: RepetitionEntry[] = [...rows]
+        .sort((a, b) => new Date(a.repeated_at).getTime() - new Date(b.repeated_at).getTime())
+        .map((r) => ({
+          id: r.id,
+          repeated_at: r.repeated_at,
+          repetition_reason: r.repetition_reason,
+          technician_id: r.technician_id,
+        }));
+
+      return {
+        exam_type: latestRow.exam_type,
+        id: latestRow.id,
+        patient_name: attendance?.patient_name ?? queueItem?.patient_name ?? null,
+        patient_registration_number:
+          attendance?.patient_registration_number ?? null,
+        queue_item_id: queueItemId,
+        repeated_at: latestRow.repeated_at,
+        repetition_reason: latestRow.repetition_reason,
+        repetition_count: rows.length,
+        room_slug: latestRow.room_slug,
+        technician_id: latestRow.technician_id,
+        repetitions,
+      };
+    })
+    .sort((a, b) => new Date(b.repeated_at).getTime() - new Date(a.repeated_at).getTime());
 
   return NextResponse.json({
     data,
-    total: repetitionsResult.count ?? data.length,
+    total: data.length,
   });
 }
