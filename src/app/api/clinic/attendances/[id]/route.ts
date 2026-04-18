@@ -105,7 +105,8 @@ function mapRpcError(message?: string | null) {
     message.includes("selecione ao menos um exame") ||
     message.includes("nao pode ser removido") ||
     message.includes("nao pode ser alterada apos iniciar") ||
-    message.includes("cancelado nao pode ser editado")
+    message.includes("cancelado nao pode ser editado") ||
+    message.includes("recepcao so pode editar atendimento antes da chamada")
   ) {
     return { message: message.replace(/^./, (value) => value.toUpperCase()), status: 409 };
   }
@@ -123,7 +124,7 @@ export async function PATCH(
     return jsonError("Origem invalida.", 403);
   }
 
-  const { supabase } = await requireRole("admin");
+  const { supabase } = await requireRole(["recepcao", "admin"]);
   const { id } = await context.params;
   const body = await parseBody<UpdateAttendanceBody>(request);
 

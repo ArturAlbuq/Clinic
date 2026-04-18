@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
 import {
+  canReceptionEditAttendance,
   getAttendanceTotalMinutes,
   getAttendanceOverallStatus,
   getNextStatus,
@@ -171,6 +172,48 @@ test("getAttendanceOverallStatus deriva a situacao corretamente", () => {
       new Date("2026-03-25T12:00:00.000Z"),
     ),
     "aguardando",
+  );
+});
+
+test("canReceptionEditAttendance libera somente atendimentos ainda nao chamados", () => {
+  const referenceDate = new Date("2026-03-25T12:00:00.000Z");
+
+  assert.equal(
+    canReceptionEditAttendance(
+      buildAttendance(),
+      [
+        buildQueueItem({ status: "aguardando" }),
+        buildQueueItem({ id: "queue-item-2", status: "aguardando" }),
+      ],
+      referenceDate,
+    ),
+    true,
+  );
+
+  assert.equal(
+    canReceptionEditAttendance(
+      buildAttendance(),
+      [
+        buildQueueItem({ status: "aguardando" }),
+        buildQueueItem({ id: "queue-item-2", status: "chamado" }),
+      ],
+      referenceDate,
+    ),
+    false,
+  );
+
+  assert.equal(
+    canReceptionEditAttendance(
+      buildAttendance({ created_at: "2026-03-24T10:00:00.000Z" }),
+      [
+        buildQueueItem({
+          created_at: "2026-03-24T10:00:00.000Z",
+          status: "aguardando",
+        }),
+      ],
+      referenceDate,
+    ),
+    false,
   );
 });
 

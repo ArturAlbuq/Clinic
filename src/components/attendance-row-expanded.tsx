@@ -1,17 +1,23 @@
 import { AttendanceTimeline } from "@/components/attendance-timeline";
+import { ReceptionEditAttendanceCard } from "@/components/reception-edit-attendance-card";
 import { ReceptionReturnActionCard } from "@/components/reception-return-action-card";
-import { EXAM_LABELS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/date";
-import { sortAttendanceQueueItemsByFlow, isQueueItemReturnPending } from "@/lib/queue";
+import { sortAttendanceQueueItemsByFlow } from "@/lib/queue";
 import type {
   AttendanceRecord,
   AttendanceWithQueueItems,
+  ExamRoomRecord,
   QueueItemRecord,
 } from "@/lib/database.types";
 
 type AttendanceRowExpandedProps = {
   attendance: AttendanceWithQueueItems;
   isToday: boolean;
+  rooms: ExamRoomRecord[];
+  onAttendanceSaved: (
+    updatedAttendance: AttendanceRecord,
+    updatedQueueItems: QueueItemRecord[],
+  ) => void;
   onQueueItemMutation: (
     updatedAttendance: AttendanceRecord,
     updatedItem: QueueItemRecord,
@@ -22,6 +28,8 @@ type AttendanceRowExpandedProps = {
 export function AttendanceRowExpanded({
   attendance,
   isToday,
+  rooms,
+  onAttendanceSaved,
   onQueueItemMutation,
 }: AttendanceRowExpandedProps) {
   const actionableItems = attendance.canceled_at
@@ -32,17 +40,15 @@ export function AttendanceRowExpanded({
 
   return (
     <div className="rounded-b-[16px] border-x border-b border-slate-200 bg-slate-50/50 px-[14px] py-[14px]">
-      {/* Notes section */}
       {attendance.notes && (
         <div className="mb-4 pb-4 border-b border-slate-200">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Observação
+            Observacao
           </p>
           <p className="mt-2 text-sm text-slate-700">{attendance.notes}</p>
         </div>
       )}
 
-      {/* Cancellation reason */}
       {attendance.cancellation_reason && attendance.canceled_at && (
         <div className="mb-4 pb-4 border-b border-slate-200">
           <p className="text-sm font-medium text-rose-700">
@@ -54,16 +60,21 @@ export function AttendanceRowExpanded({
         </div>
       )}
 
-      {/* Timeline */}
       <div className="mb-4 pb-4 border-b border-slate-200">
         <AttendanceTimeline items={attendance.queueItems} title="Exames do atendimento" />
       </div>
 
-      {/* Action cards */}
+      <ReceptionEditAttendanceCard
+        attendance={attendance}
+        isToday={isToday}
+        rooms={rooms}
+        onAttendanceSaved={onAttendanceSaved}
+      />
+
       {actionableItems.length ? (
-        <div>
+        <div className="mt-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Ações por etapa
+            Acoes por etapa
           </p>
           <div className="mt-3 grid gap-3">
             {actionableItems.map((item) => (

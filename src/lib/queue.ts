@@ -879,6 +879,32 @@ export function getAttendanceOverallStatus(
   return hasActiveVisibleItems ? "em_andamento" : "aguardando";
 }
 
+export function canReceptionEditAttendance(
+  attendance:
+    | Pick<
+        AttendanceRecord,
+        "canceled_at" | "created_at" | "deleted_at" | "return_pending_at"
+      >
+    | null
+    | undefined,
+  queueItems: QueueItemRecord[],
+  referenceDate = new Date(),
+) {
+  if (attendance?.deleted_at || attendance?.canceled_at) {
+    return false;
+  }
+
+  if (!queueItems.length) {
+    return false;
+  }
+
+  return queueItems.every(
+    (item) =>
+      item.status === "aguardando" &&
+      !isQueueItemReturnPending({ ...item, attendance }, referenceDate),
+  );
+}
+
 function getAttendanceStatusBeforeDeletion(
   attendance: AttendanceRecord,
   queueItems: QueueItemRecord[],

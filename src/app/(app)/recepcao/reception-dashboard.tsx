@@ -262,6 +262,28 @@ export function ReceptionDashboard({
     );
   }
 
+  function applyAttendanceMutation(
+    updatedAttendance: AttendanceRecord,
+    updatedQueueItems: QueueItemRecord[],
+  ) {
+    setAttendances((currentAttendances) =>
+      currentAttendances.map((attendance) =>
+        attendance.id === updatedAttendance.id ? updatedAttendance : attendance,
+      ),
+    );
+    setQueueItems((currentQueueItems) => {
+      const remainingItems = currentQueueItems.filter(
+        (queueItem) => queueItem.attendance_id !== updatedAttendance.id,
+      );
+
+      return [...remainingItems, ...updatedQueueItems].sort(
+        (left, right) =>
+          new Date(left.created_at).getTime() -
+          new Date(right.created_at).getTime(),
+      );
+    });
+  }
+
   return (
     <div className="space-y-6">
       <section className="space-y-6">
@@ -412,9 +434,11 @@ export function ReceptionDashboard({
                     }
                   />
                   {isExpanded && (
-                    <AttendanceRowExpanded
+                  <AttendanceRowExpanded
                       attendance={attendance}
                       isToday={isToday}
+                      rooms={rooms}
+                      onAttendanceSaved={applyAttendanceMutation}
                       onQueueItemMutation={(updatedAttendance, updatedItem, updatedQueueItems) => {
                         applyQueueItemMutation(
                           updatedAttendance,

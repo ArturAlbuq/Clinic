@@ -189,7 +189,8 @@ function mapAttendanceUpdateError(message?: string | null) {
     message.includes("selecione ao menos um exame") ||
     message.includes("nao pode ser removido") ||
     message.includes("nao pode ser alterada apos iniciar") ||
-    message.includes("cancelado nao pode ser editado")
+    message.includes("cancelado nao pode ser editado") ||
+    message.includes("recepcao so pode editar atendimento antes da chamada")
   ) {
     return {
       message: message.replace(/^./, (value) => value.toUpperCase()),
@@ -472,7 +473,7 @@ export async function PATCH(request: Request) {
   }
 
   if (body.action === "update") {
-    const { supabase } = await requireRole("admin");
+    const { supabase } = await requireRole(["recepcao", "admin"]);
     const patientName = body.patientName?.trim() ?? "";
     const patientRegistrationNumber = body.patientRegistrationNumber?.trim() ?? "";
     const notes = body.notes?.trim() ?? "";
