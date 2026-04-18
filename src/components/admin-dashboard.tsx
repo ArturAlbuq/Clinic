@@ -342,23 +342,6 @@ export function AdminDashboard({
     (attendance) => getAttendanceOverallStatus(attendance, attendance.queueItems) === "finalizado",
   ).length;
   const canceledStages = reportQueueItems.filter((item) => item.status === "cancelado").length;
-  const topPriorityWaiting = operationalAttendances.filter(
-    (attendance) =>
-      attendance.priority === "oitenta_mais" &&
-      getAttendanceOverallStatus(attendance, attendance.queueItems) === "aguardando",
-  ).length;
-  const longestWaitingItem =
-    reportQueueItems
-      .filter((item) => item.status === "aguardando")
-      .sort((a, b) => getQueueWaitMinutes(b) - getQueueWaitMinutes(a))[0] ?? null;
-  const longestWaitMinutes = longestWaitingItem
-    ? getQueueWaitMinutes(longestWaitingItem)
-    : null;
-  // Valores acima de 480 min indicam dado incorreto (ex.: registros de outro dia) — exibe "--"
-  const longestWaitDisplay =
-    longestWaitMinutes !== null && longestWaitMinutes <= 480
-      ? formatMinuteLabel(longestWaitMinutes)
-      : "--";
 
   const reportPdfUrl = `/api/clinic/reports/pdf?${new URLSearchParams({
     date: initialSelectedDate,
