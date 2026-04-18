@@ -498,7 +498,7 @@ export function AdminDashboard({
         <MetricCard label="Cadastros" value={String(reportAttendances.length)} helper="Atendimentos criados no recorte." accent="teal" />
         <MetricCard label="Exames" value={String(reportQueueItems.length)} helper="Itens distribuidos nas salas." accent="slate" />
         <MetricCard label="Aguardando" value={String(waitingAttendances)} helper="Atendimentos sem exame iniciado." accent="amber" />
-        <MetricCard label="80+ esperando" value={String(topPriorityWaiting)} helper="Maior prioridade ainda na fila." accent="amber" />
+        <MetricCard label="Espera media" value={formatMinuteLabel(getAverageWaitMinutes(queueItems.filter((item) => item.status !== "cancelado")))} helper="Tempo medio de espera na fila ativa." accent="teal" />
         <MetricCard label="Exames cancelados" value={String(canceledStages)} helper="Cancelamentos registrados no recorte." accent="rose" />
         <MetricCard label="Em andamento" value={String(activeAttendances)} helper="Atendimentos com exame ativo." accent="teal" />
       </section>
