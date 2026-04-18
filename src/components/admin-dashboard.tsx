@@ -503,31 +503,6 @@ export function AdminDashboard({
         <MetricCard label="Em andamento" value={String(activeAttendances)} helper="Atendimentos com exame ativo." accent="teal" />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="app-panel rounded-[30px] px-6 py-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Resumo operacional</p>
-              <h3 className="mt-2 text-2xl font-semibold text-slate-950">O que pede atencao agora</h3>
-            </div>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700">
-              Espera media {formatMinuteLabel(getAverageWaitMinutes(queueItems.filter((item) => item.status !== "cancelado")))}
-            </span>
-          </div>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <Pill label="Em andamento" value={`${activeAttendances} atendimento${activeAttendances === 1 ? "" : "s"}`} tone="teal" />
-            <Pill label="Aguardando" value={`${waitingAttendances} paciente${waitingAttendances === 1 ? "" : "s"}`} tone="amber" />
-            <Pill label="Finalizados" value={`${finishedAttendances} concluido${finishedAttendances === 1 ? "" : "s"}`} tone="slate" />
-            <Pill label="Maior espera" value={longestWaitDisplay} tone="amber" />
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-          <MetricCard label="Normal" value={String(reportAttendances.filter((a) => a.priority === "normal").length)} helper="Prioridade base." />
-          <MetricCard label="60+ e outras" value={String(reportAttendances.filter((a) => a.priority === "sessenta_mais_outras").length)} helper="Prioridade intermediaria." accent="teal" />
-          <MetricCard label="80+" value={String(reportAttendances.filter((a) => a.priority === "oitenta_mais").length)} helper="Maior prioridade operacional." accent="amber" />
-        </div>
-      </section>
-
       <section className="app-panel rounded-[30px] px-6 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
