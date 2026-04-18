@@ -9,6 +9,13 @@ import { readJsonResponse } from "@/lib/fetch-json";
 
 type Option = readonly [label: string, value: string];
 
+type RepetitionEntry = {
+  id: string;
+  repeated_at: string;
+  repetition_reason: string | null;
+  technician_id: string | null;
+};
+
 type RepetitionRecord = {
   id: string;
   queue_item_id: string;
@@ -18,6 +25,7 @@ type RepetitionRecord = {
   repeated_at: string;
   repetition_reason?: string | null;
   repetition_count?: number;
+  repetitions?: RepetitionEntry[];
   patient_name?: string | null;
   patient_registration_number?: string | null;
 };
@@ -28,6 +36,56 @@ type Props = {
 };
 
 type PageSize = 5 | 10 | 15;
+
+function ExpandableMotivo({ repetitions }: { repetitions?: RepetitionEntry[] }) {
+  const [open, setOpen] = useState(false);
+
+  if (!repetitions || repetitions.length === 0) {
+    return <span className="text-slate-400">-</span>;
+  }
+
+  const latest = repetitions[repetitions.length - 1];
+  const prior = repetitions.length - 1;
+
+  if (prior === 0) {
+    return (
+      <span className="text-slate-700">
+        {latest.repetition_reason ?? <span className="text-slate-400">-</span>}
+      </span>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-start gap-1.5 text-left text-sm text-slate-700 hover:text-slate-900"
+      >
+        <span
+          className="mt-0.5 shrink-0 text-[10px] text-slate-400 transition-transform"
+          style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+        >
+          &#9654;
+        </span>
+        <span>
+          {latest.repetition_reason ?? "-"}{" "}
+          <span className="text-xs text-slate-400">(+{prior} anterior{prior > 1 ? "es" : ""})</span>
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 border-l-2 border-slate-200 pl-3">
+          {repetitions.map((r, i) => (
+            <div key={r.id} className="flex gap-2 py-1 text-xs text-slate-500">
+              <span className="shrink-0 font-bold text-slate-400">{i + 1}ª</span>
+              <span>{r.repetition_reason ?? "-"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function RepetitionsReportTable({ profiles, rooms }: Props) {
   const [repetitions, setRepetitions] = useState<RepetitionRecord[]>([]);
@@ -276,12 +334,8 @@ export function RepetitionsReportTable({ profiles, rooms }: Props) {
                           {rep.repetition_count ?? 1}
                         </span>
                       </td>
-                      <td className="max-w-xs px-3 py-3 text-slate-600">
-                        {rep.repetition_reason ? (
-                          <span className="line-clamp-2">{rep.repetition_reason}</span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
+                      <td className="max-w-xs px-3 py-3">
+                        <ExpandableMotivo repetitions={rep.repetitions} />
                       </td>
                     </tr>
                   );
