@@ -146,7 +146,6 @@ export async function GET(request: Request) {
     .from("exam_repetitions")
     .select(
       "id, queue_item_id, exam_type, room_slug, technician_id, repeated_at, repetition_reason",
-      { count: "exact" },
     )
     .gte("repeated_at", rangeStartIso)
     .lte("repeated_at", rangeEndIso)
