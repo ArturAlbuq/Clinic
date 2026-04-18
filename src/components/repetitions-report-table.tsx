@@ -38,6 +38,7 @@ type Props = {
 type PageSize = 5 | 10 | 15;
 
 function ExpandableMotivo({ repetitions }: { repetitions?: RepetitionEntry[] }) {
+  // useState must precede any conditional return (Rules of Hooks)
   const [open, setOpen] = useState(false);
 
   if (!repetitions || repetitions.length === 0) {
@@ -63,8 +64,7 @@ function ExpandableMotivo({ repetitions }: { repetitions?: RepetitionEntry[] }) 
         className="flex items-start gap-1.5 text-left text-sm text-slate-700 hover:text-slate-900"
       >
         <span
-          className="mt-0.5 shrink-0 text-[10px] text-slate-400 transition-transform"
-          style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+          className={`mt-0.5 shrink-0 text-[10px] text-slate-400 inline-block transition-transform duration-150 ${open ? "rotate-90" : ""}`}
         >
           &#9654;
         </span>
