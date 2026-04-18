@@ -486,13 +486,10 @@ export function AdminDashboard({
         <MetricCard label="Em andamento" value={String(activeAttendances)} helper="Atendimentos com exame ativo." accent="teal" />
       </section>
 
-      <section className="app-panel rounded-[30px] px-6 py-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Navegacao</p>
-            <h3 className="mt-2 text-2xl font-semibold text-slate-950">Operacao, busca, relatorios e exclusoes</h3>
-          </div>
-          <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+      <section className="flex justify-center">
+        <div className="app-panel inline-flex flex-col items-center gap-4 rounded-[30px] px-8 py-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Navegacao</p>
+          <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1.5">
             <TabButton active={activeTab === "operacao"} label="Operacao" onClick={() => setActiveTab("operacao")} />
             <TabButton active={activeTab === "busca"} label="Busca de pacientes" onClick={() => setActiveTab("busca")} />
             <TabButton active={activeTab === "relatorios"} label="Relatorios" onClick={() => setActiveTab("relatorios")} />
