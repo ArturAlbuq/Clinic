@@ -64,6 +64,13 @@ const PIPELINE_FLAGS_DEFAULT: PipelineFlags = {
   com_laboratorio_externo_escaneamento: false,
 };
 
+const LAUDO_EXAMS = new Set<ExamType>([
+  "periapical",
+  "interproximal",
+  "panoramica",
+  "tomografia",
+]);
+
 const FILTER_LABELS: Record<StatusFilter, string> = {
   todos: "Todos",
   aguardando: "Aguardando",
@@ -158,7 +165,20 @@ export function ReceptionDashboard({
           return nextQuantities;
         });
 
-        return current.filter((entry) => entry !== examType);
+        const nextSelected = current.filter((entry) => entry !== examType);
+
+        setPipelineFlags((flags) => {
+          const next = { ...flags };
+          if (LAUDO_EXAMS.has(examType) && !nextSelected.some((e) => LAUDO_EXAMS.has(e))) {
+            next.com_laudo = false;
+          }
+          if (examType === "telerradiografia") next.com_cefalometria = false;
+          if (examType === "fotografia") next.com_impressao_fotografia = false;
+          if (examType === "escaneamento_intra_oral") next.com_laboratorio_externo_escaneamento = false;
+          return next;
+        });
+
+        return nextSelected;
       }
 
       setExamQuantities((currentQuantities) => ({
@@ -168,6 +188,10 @@ export function ReceptionDashboard({
 
       return [...current, examType];
     });
+  }
+
+  function togglePipelineFlag(flag: keyof PipelineFlags, value: boolean) {
+    setPipelineFlags((current) => ({ ...current, [flag]: value }));
   }
 
   function updateExamQuantity(examType: ExamType, rawValue: string) {
@@ -243,6 +267,7 @@ export function ReceptionDashboard({
     setExamQuantities({});
     setPriority("normal");
     setNotes("");
+    setPipelineFlags(PIPELINE_FLAGS_DEFAULT);
     setFormSuccess("Atendimento enviado para os exames selecionados.");
     setIsSubmitting(false);
   }
@@ -319,6 +344,8 @@ export function ReceptionDashboard({
                 examQuantities={examQuantities}
                 onToggleExam={toggleExam}
                 onUpdateExamQuantity={updateExamQuantity}
+                pipelineFlags={pipelineFlags}
+                onTogglePipelineFlag={togglePipelineFlag}
               />
 
               <PriorityNotesSection
