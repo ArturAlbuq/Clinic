@@ -56,6 +56,20 @@ type ReceptionDashboardProps = {
 
 type StatusFilter = AttendanceOverallStatus | "todos";
 
+type PipelineFlags = {
+  com_laudo: boolean;
+  com_cefalometria: boolean;
+  com_impressao_fotografia: boolean;
+  com_laboratorio_externo_escaneamento: boolean;
+};
+
+const PIPELINE_FLAGS_DEFAULT: PipelineFlags = {
+  com_laudo: false,
+  com_cefalometria: false,
+  com_impressao_fotografia: false,
+  com_laboratorio_externo_escaneamento: false,
+};
+
 const FILTER_LABELS: Record<StatusFilter, string> = {
   todos: "Todos",
   aguardando: "Aguardando",
@@ -94,6 +108,7 @@ export function ReceptionDashboard({
   >({});
   const [priority, setPriority] = useState<AttendancePriority>("normal");
   const [notes, setNotes] = useState("");
+  const [pipelineFlags, setPipelineFlags] = useState<PipelineFlags>(PIPELINE_FLAGS_DEFAULT);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
