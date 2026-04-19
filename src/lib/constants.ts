@@ -174,9 +174,18 @@ export const ROLE_NAVIGATION: Record<
     label: string;
   }>
 > = {
-  recepcao: [{ href: "/recepcao", label: "Recepcao" }],
-  atendimento: [{ href: "/atendimento", label: "Salas" }],
-  admin: [{ href: "/admin", label: "Resumo do dia" }],
+  recepcao: [
+    { href: "/recepcao", label: "Recepcao" },
+    { href: "/pos-atendimento", label: "Pós-atendimento" },
+  ],
+  atendimento: [
+    { href: "/atendimento", label: "Salas" },
+    { href: "/pos-atendimento", label: "Pós-atendimento" },
+  ],
+  admin: [
+    { href: "/admin", label: "Resumo do dia" },
+    { href: "/pos-atendimento", label: "Pós-atendimento" },
+  ],
   gerencia: [{ href: "/gerencia", label: "Operação" }],
 };
 
