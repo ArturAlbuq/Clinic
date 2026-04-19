@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { logServerError } from "@/lib/server-error";
-import type { Enums } from "@/lib/database.types";
-
-type PipelineStatus = Enums<"pipeline_status">;
 
 type AdminActionBody = {
   action: "reopen" | "correct-status";
-  newStatus: PipelineStatus;
+  newStatus: string;
   reason: string;
 };
 
@@ -78,21 +75,6 @@ export async function POST(
     logServerError("admin_action.pipeline_items.update", updateError);
     return jsonError("Nao foi possivel executar a acao.", 400);
   }
-
-  // Insert an extra event tagging the action type for audit visibility
-  const eventMetadata =
-    body.action === "reopen"
-      ? { event_type: "reopened", performed_by_role: profile.role }
-      : { event_type: "admin_correction", performed_by_role: profile.role };
-
-  await supabase.from("pipeline_events").insert({
-    pipeline_item_id: id,
-    previous_status: item.status as PipelineStatus,
-    new_status: body.newStatus,
-    performed_by: profile.id,
-    notes: reason,
-    metadata: eventMetadata,
-  });
 
   return NextResponse.json({ success: true });
 }
