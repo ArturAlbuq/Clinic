@@ -185,8 +185,13 @@ export const ROLE_NAVIGATION: Record<
   admin: [
     { href: "/admin", label: "Resumo do dia" },
     { href: "/pos-atendimento", label: "Pós-atendimento" },
+    { href: "/pos-atendimento/gerencial", label: "Gerencial" },
+    { href: "/admin/sla", label: "SLA" },
   ],
-  gerencia: [{ href: "/gerencia", label: "Operação" }],
+  gerencia: [
+    { href: "/gerencia", label: "Operação" },
+    { href: "/pos-atendimento/gerencial", label: "Gerencial" },
+  ],
 };
 
 export const REALTIME_STATUS_LABELS: Record<RealtimeStatus, string> = {
