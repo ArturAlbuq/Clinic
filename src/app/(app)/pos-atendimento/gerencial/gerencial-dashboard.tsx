@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { formatDateTime } from "@/lib/date";
 import {
@@ -116,7 +116,6 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
     if (filterOverdue) query = query.lt("sla_deadline", new Date().toISOString()).neq("status", "publicado_finalizado");
     if (filterFinished === "aberto") query = query.neq("status", "publicado_finalizado");
     if (filterFinished === "finalizado") query = query.eq("status", "publicado_finalizado");
-    if (filterSearch.trim()) query = query.ilike("attendances.patient_name", `%${filterSearch.trim()}%`);
     if (filterOpenedFrom) query = query.gte("opened_at", filterOpenedFrom);
     if (filterOpenedTo) query = query.lte("opened_at", filterOpenedTo + "T23:59:59Z");
 
@@ -131,7 +130,7 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
       setPage(pageIndex);
     }
     setLoading(false);
-  }, [filterType, filterStatus, filterOverdue, filterFinished, filterSearch, filterOpenedFrom, filterOpenedTo]);
+  }, [filterType, filterStatus, filterOverdue, filterFinished, filterOpenedFrom, filterOpenedTo]);
 
   const fetchSummary = useCallback(async () => {
     const supabase = getBrowserSupabaseClient();
@@ -239,6 +238,18 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
     return "text-green-600";
   }
 
+  const displayedItems = useMemo(
+    () =>
+      filterSearch.trim()
+        ? items.filter((item) =>
+            item.attendances?.patient_name
+              ?.toLowerCase()
+              .includes(filterSearch.trim().toLowerCase())
+          )
+        : items,
+    [items, filterSearch]
+  );
+
   const pipelineTypes: PipelineType[] = ["laudo", "cefalometria", "fotografia", "escaneamento"];
   const pipelineStatuses: PipelineStatus[] = [
     "nao_iniciado", "pendente_envio", "enviado_radiologista", "recebido_radiologista",
@@ -315,7 +326,7 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
         <span className="ml-auto text-xs text-slate-400">{total} resultado{total !== 1 ? "s" : ""}</span>
       </div>
 
-      {items.length === 0 ? (
+      {displayedItems.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center text-sm text-slate-400 shadow-sm">
           Nenhuma esteira encontrada com os filtros selecionados.
         </div>
@@ -334,7 +345,7 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {items.map((item) => (
+              {displayedItems.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/60">
                   <td className="px-4 py-3 font-medium text-slate-900">
                     {item.attendances?.patient_name ?? "—"}
