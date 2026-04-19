@@ -114,3 +114,45 @@ function getEscaneamentoNextStatuses(
   };
   return map[current] ?? [];
 }
+
+export function getStatusesForType(type: PipelineType): PipelineStatus[] {
+  const map: Record<PipelineType, PipelineStatus[]> = {
+    laudo: [
+      "nao_iniciado",
+      "pendente_envio",
+      "enviado_radiologista",
+      "recebido_radiologista",
+      "devolvido_radiologista",
+      "recebido_corrigido",
+      "revisado_liberado",
+      "publicado_finalizado",
+    ],
+    cefalometria: [
+      "nao_iniciado",
+      "pendente_envio",
+      "enviado_radiologista",
+      "recebido_radiologista",
+      "devolvido_radiologista",
+      "recebido_corrigido",
+      "revisado_liberado",
+      "publicado_finalizado",
+    ],
+    fotografia: [
+      "nao_iniciado",
+      "em_ajuste",
+      "publicado_idoc",
+      "disponivel_impressao",
+      "enviado_impressao",
+      "recebido_laboratorio",
+      "publicado_finalizado",
+    ],
+    escaneamento: [
+      "nao_iniciado",
+      "em_ajuste",
+      "enviado_laboratorio_externo",
+      "retornado_laboratorio",
+      "publicado_finalizado",
+    ],
+  };
+  return map[type];
+}
