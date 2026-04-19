@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { formatDateTime } from "@/lib/date";
 import {
@@ -42,7 +42,6 @@ type PipelineEvent = {
 
 type Props = {
   initialItems: PipelineItemRow[];
-  profiles: Pick<ProfileRecord, "id" | "full_name">[];
   currentProfile: ProfileRecord;
 };
 
@@ -120,33 +119,42 @@ export function PosAtendimentoDashboard({
     };
   }, []);
 
-  const sorted = [...items].sort((a, b) => {
-    const nowMs = Date.now();
-    const aOverdue = a.sla_deadline
-      ? new Date(a.sla_deadline).getTime() < nowMs
-      : false;
-    const bOverdue = b.sla_deadline
-      ? new Date(b.sla_deadline).getTime() < nowMs
-      : false;
-    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-    return new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime();
-  });
+  const sorted = useMemo(
+    () =>
+      [...items].sort((a, b) => {
+        const nowMs = Date.now();
+        const aOverdue = a.sla_deadline
+          ? new Date(a.sla_deadline).getTime() < nowMs
+          : false;
+        const bOverdue = b.sla_deadline
+          ? new Date(b.sla_deadline).getTime() < nowMs
+          : false;
+        if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+        return new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime();
+      }),
+    [items]
+  );
 
-  const filtered = sorted.filter((item) => {
-    if (filterType !== "todos" && item.pipeline_type !== filterType)
-      return false;
-    if (filterStatus !== "todos" && item.status !== filterStatus) return false;
-    if (filterOverdue) {
-      if (!item.sla_deadline) return false;
-      if (new Date(item.sla_deadline).getTime() >= Date.now()) return false;
-    }
-    if (filterSearch.trim()) {
-      const needle = filterSearch.trim().toLowerCase();
-      const name = item.attendances?.patient_name?.toLowerCase() ?? "";
-      if (!name.includes(needle)) return false;
-    }
-    return true;
-  });
+  const filtered = useMemo(
+    () =>
+      sorted.filter((item) => {
+        if (filterType !== "todos" && item.pipeline_type !== filterType)
+          return false;
+        if (filterStatus !== "todos" && item.status !== filterStatus)
+          return false;
+        if (filterOverdue) {
+          if (!item.sla_deadline) return false;
+          if (new Date(item.sla_deadline).getTime() >= Date.now()) return false;
+        }
+        if (filterSearch.trim()) {
+          const needle = filterSearch.trim().toLowerCase();
+          const name = item.attendances?.patient_name?.toLowerCase() ?? "";
+          if (!name.includes(needle)) return false;
+        }
+        return true;
+      }),
+    [sorted, filterType, filterStatus, filterOverdue, filterSearch]
+  );
 
   const handleAdvanceConfirm = useCallback(
     async (newStatus: PipelineStatus, notes: string) => {
@@ -155,26 +163,14 @@ export function PosAtendimentoDashboard({
       if (!supabase) return;
       const item = advanceTarget.item;
 
-      const [{ error: updateError }, { error: insertError }] =
-        await Promise.all([
-          supabase
-            .from("pipeline_items")
-            .update({ status: newStatus, updated_at: new Date().toISOString() })
-            .eq("id", item.id),
-          supabase.from("pipeline_events").insert({
-            pipeline_item_id: item.id,
-            previous_status: item.status,
-            new_status: newStatus,
-            performed_by: currentProfile.id,
-            occurred_at: new Date().toISOString(),
-            notes: notes || null,
-          }),
-        ]);
+      const { error } = await supabase
+        .from("pipeline_items")
+        .update({ status: newStatus, notes: notes || null })
+        .eq("id", item.id);
 
-      if (updateError) throw updateError;
-      if (insertError) throw insertError;
+      if (error) throw error;
     },
-    [advanceTarget, currentProfile.id]
+    [advanceTarget]
   );
 
   const openHistory = useCallback(async (item: PipelineItemRow) => {
@@ -363,7 +359,6 @@ export function PosAtendimentoDashboard({
 
       {advanceTarget && (
         <AdvanceStatusModal
-          pipelineItemId={advanceTarget.item.id}
           patientName={
             advanceTarget.item.attendances?.patient_name ?? "Paciente"
           }

@@ -8,7 +8,6 @@ import {
 import type { PipelineStatus, PipelineType } from "@/lib/database.types";
 
 type AdvanceStatusModalProps = {
-  pipelineItemId: string;
   patientName: string;
   currentStatus: PipelineStatus;
   pipelineType: PipelineType;
@@ -30,15 +29,19 @@ export function AdvanceStatusModal({
   );
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const nextStatuses = getNextStatuses(pipelineType, currentStatus, metadata);
 
   async function handleConfirm() {
     if (!selectedStatus) return;
     setSubmitting(true);
+    setError(null);
     try {
       await onConfirm(selectedStatus, notes.trim());
       onClose();
+    } catch {
+      setError("Erro ao avançar status. Tente novamente.");
     } finally {
       setSubmitting(false);
     }
@@ -108,6 +111,12 @@ export function AdvanceStatusModal({
             placeholder="Observação sobre este avanço..."
           />
         </div>
+
+        {error && (
+          <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
 
         <div className="flex justify-end gap-2">
           <button

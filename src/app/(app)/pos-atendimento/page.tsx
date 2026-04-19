@@ -18,11 +18,6 @@ export default async function PosAtendimentoPage() {
     .neq("status", "publicado_finalizado")
     .order("opened_at", { ascending: true });
 
-  const { data: allProfiles } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .order("full_name", { ascending: true });
-
   const { PosAtendimentoDashboard } = await import(
     "./pos-atendimento-dashboard"
   );
@@ -30,7 +25,6 @@ export default async function PosAtendimentoPage() {
   return (
     <PosAtendimentoDashboard
       initialItems={pipelineItems ?? []}
-      profiles={allProfiles ?? []}
       currentProfile={profile}
     />
   );
