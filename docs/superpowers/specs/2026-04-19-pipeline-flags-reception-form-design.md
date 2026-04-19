@@ -69,7 +69,15 @@ Na função `toggleExam`, quando `alreadySelected === true`:
 - Se `escaneamento_intra_oral` for desmarcado → `com_laboratorio_externo_escaneamento: false`
 
 **Reset no submit bem-sucedido:**  
-Incluir reset de `pipelineFlags` para os valores padrão `false` junto com os outros resets.
+Após `setSelectedExams([])` e demais resets, incluir explicitamente:
+```ts
+setPipelineFlags({
+  com_laudo: false,
+  com_cefalometria: false,
+  com_impressao_fotografia: false,
+  com_laboratorio_externo_escaneamento: false,
+});
+```
 
 ### 3. Props adicionais em `ExamsSectionProps`
 
@@ -89,9 +97,9 @@ Mapeamento exame → flag:
 | `fotografia` | `com_impressao_fotografia` | "Com impressão" |
 | `escaneamento_intra_oral` | `com_laboratorio_externo_escaneamento` | "Laboratório externo" |
 
-`com_laudo` deve aparecer **uma única vez** (não por exame), condicionado a `selectedExams` conter qualquer um dos 4 exames correspondentes.
+`com_laudo` pode ser ativado por exames de salas diferentes (`periapical`/`interproximal` estão em Intra-oral, `panoramica` em Extra-oral, `tomografia` em Tomografia). Para evitar que apareça múltiplas vezes (uma por sala), **`com_laudo` deve ser renderizado em uma área comum abaixo de todos os cards de exames**, antes do campo de observação, condicionado a `selectedExams` conter qualquer um dos 4 exames correspondentes.
 
-**Posição:** Logo após o grid de exames de cada sala, dentro do card da sala, somente se ao menos um exame dessa sala que ativa o flag estiver selecionado.
+Os outros três flags (`com_cefalometria`, `com_impressao_fotografia`, `com_laboratorio_externo_escaneamento`) são de sala única — esses ficam dentro do card da sala correspondente, logo após o grid de exames daquela sala.
 
 **Visual:** Checkbox pequeno (`h-4 w-4`) + label em `text-sm text-slate-700`, dentro de um `flex items-center gap-2`, sem borda extra. Mesma paleta Tailwind do formulário.
 
@@ -134,7 +142,7 @@ p_com_impressao_fotografia: body.comImpressaoFotografia ?? false,
 p_com_laboratorio_externo_escaneamento: body.comLaboratorioExternoEscaneamento ?? false,
 ```
 
-Esses parâmetros são opcionais no RPC (já tipados como `boolean | undefined` em `database.types.ts`), então sem risco de quebrar o fallback legacy.
+**RPC confirmado no staging:** a versão mais recente de `create_attendance_with_queue_items` já inclui os 4 parâmetros (`p_com_laudo`, `p_com_cefalometria`, `p_com_impressao_fotografia`, `p_com_laboratorio_externo_escaneamento`) com `DEFAULT false`. Sem necessidade de nova migration. O fallback legacy (overload sem esses parâmetros) continua existindo — os novos parâmetros não quebram a detecção de assinatura legacy na route.
 
 ---
 
