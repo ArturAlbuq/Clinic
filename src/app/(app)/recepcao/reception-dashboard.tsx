@@ -155,39 +155,36 @@ export function ReceptionDashboard({
   ).length;
 
   function toggleExam(examType: ExamType) {
-    setSelectedExams((current) => {
-      const alreadySelected = current.includes(examType);
+    const isRemoving = selectedExams.includes(examType);
 
-      if (alreadySelected) {
-        setExamQuantities((currentQuantities) => {
-          const nextQuantities = { ...currentQuantities };
-          delete nextQuantities[examType];
-          return nextQuantities;
-        });
+    setSelectedExams((current) =>
+      isRemoving
+        ? current.filter((e) => e !== examType)
+        : [...current, examType],
+    );
 
-        const nextSelected = current.filter((entry) => entry !== examType);
-
-        setPipelineFlags((flags) => {
-          const next = { ...flags };
-          if (LAUDO_EXAMS.has(examType) && !nextSelected.some((e) => LAUDO_EXAMS.has(e))) {
-            next.com_laudo = false;
-          }
-          if (examType === "telerradiografia") next.com_cefalometria = false;
-          if (examType === "fotografia") next.com_impressao_fotografia = false;
-          if (examType === "escaneamento_intra_oral") next.com_laboratorio_externo_escaneamento = false;
-          return next;
-        });
-
-        return nextSelected;
+    setExamQuantities((current) => {
+      if (!isRemoving) {
+        return { ...current, [examType]: current[examType] ?? 1 };
       }
-
-      setExamQuantities((currentQuantities) => ({
-        ...currentQuantities,
-        [examType]: currentQuantities[examType] ?? 1,
-      }));
-
-      return [...current, examType];
+      const next = { ...current };
+      delete next[examType];
+      return next;
     });
+
+    if (isRemoving) {
+      const nextSelected = selectedExams.filter((e) => e !== examType);
+      setPipelineFlags((flags) => {
+        const next = { ...flags };
+        if (LAUDO_EXAMS.has(examType) && !nextSelected.some((e) => LAUDO_EXAMS.has(e))) {
+          next.com_laudo = false;
+        }
+        if (examType === "telerradiografia") next.com_cefalometria = false;
+        if (examType === "fotografia") next.com_impressao_fotografia = false;
+        if (examType === "escaneamento_intra_oral") next.com_laboratorio_externo_escaneamento = false;
+        return next;
+      });
+    }
   }
 
   function togglePipelineFlag(flag: keyof PipelineFlags, value: boolean) {
