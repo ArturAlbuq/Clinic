@@ -10,6 +10,7 @@ import type {
   AttendanceWithQueueItems,
   ExamRoomRecord,
   ExamType,
+  PipelineFlags,
   QueueItemRecord,
 } from "@/lib/database.types";
 
@@ -41,6 +42,17 @@ export function ReceptionEditAttendanceCard({
 }: ReceptionEditAttendanceCardProps) {
   const canEdit =
     isToday && canReceptionEditAttendance(attendance, attendance.queueItems);
+  const attendancePipelineFlags: PipelineFlags = {
+    com_laudo: attendance.com_laudo,
+    com_cefalometria: attendance.com_cefalometria,
+    com_impressao_fotografia: attendance.com_impressao_fotografia,
+    com_laboratorio_externo_escaneamento:
+      attendance.com_laboratorio_externo_escaneamento,
+  };
+  function noopTogglePipelineFlag(
+    _flag: keyof PipelineFlags,
+    _value: boolean,
+  ) {}
   const initialSelectedExams = useMemo(
     () => Array.from(new Set(attendance.queueItems.map((item) => item.exam_type))),
     [attendance.queueItems],
@@ -252,6 +264,8 @@ export function ReceptionEditAttendanceCard({
             examQuantities={examQuantities}
             onToggleExam={toggleExam}
             onUpdateExamQuantity={updateExamQuantity}
+            pipelineFlags={attendancePipelineFlags}
+            onTogglePipelineFlag={noopTogglePipelineFlag}
           />
 
           <div className="flex flex-wrap gap-3">

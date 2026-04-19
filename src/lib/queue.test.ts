@@ -36,6 +36,10 @@ function buildAttendance(
     return_pending_at: null,
     return_pending_by: null,
     return_pending_reason: null,
+    com_laudo: false,
+    com_cefalometria: false,
+    com_impressao_fotografia: false,
+    com_laboratorio_externo_escaneamento: false,
     ...overrides,
   };
 }

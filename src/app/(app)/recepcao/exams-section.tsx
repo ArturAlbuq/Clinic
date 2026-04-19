@@ -6,7 +6,15 @@ import {
 import type {
   ExamRoomRecord,
   ExamType,
+  PipelineFlags,
 } from "@/lib/database.types";
+
+const LAUDO_EXAMS = new Set<ExamType>([
+  "periapical",
+  "interproximal",
+  "panoramica",
+  "tomografia",
+]);
 
 type ExamsSectionProps = {
   rooms: ExamRoomRecord[];
@@ -14,6 +22,8 @@ type ExamsSectionProps = {
   examQuantities: Partial<Record<ExamType, number>>;
   onToggleExam: (examType: ExamType) => void;
   onUpdateExamQuantity: (examType: ExamType, quantity: string) => void;
+  pipelineFlags: PipelineFlags;
+  onTogglePipelineFlag: (flag: keyof PipelineFlags, value: boolean) => void;
 };
 
 export function ExamsSection({
@@ -22,28 +32,40 @@ export function ExamsSection({
   examQuantities,
   onToggleExam,
   onUpdateExamQuantity,
+  pipelineFlags,
+  onTogglePipelineFlag,
 }: ExamsSectionProps) {
+  const showLaudo = selectedExams.some((e) => LAUDO_EXAMS.has(e));
+
   return (
     <div>
       <span className="mb-4 block text-sm font-semibold text-slate-700">
         Exames
       </span>
       <div className="space-y-4">
-        {rooms.map((room) => (
-          <div
-            key={room.slug}
-            className="rounded-[24px] border border-slate-200 bg-white px-4 py-4"
-          >
-            <div>
-              <p className="text-sm font-semibold text-slate-900">{room.name}</p>
-              <p className="mt-1 text-xs text-slate-600">
-                Selecione os exames que entram nesta sala.
-              </p>
-            </div>
+        {rooms.map((room) => {
+          const roomExams = ROOM_EXAM_TYPES[room.slug as keyof typeof ROOM_EXAM_TYPES];
+          const showCefalometria =
+            room.slug === "panoramico" && selectedExams.includes("telerradiografia");
+          const showImpressao =
+            room.slug === "fotografia-escaneamento" && selectedExams.includes("fotografia");
+          const showLaboratorio =
+            room.slug === "fotografia-escaneamento" && selectedExams.includes("escaneamento_intra_oral");
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {ROOM_EXAM_TYPES[room.slug as keyof typeof ROOM_EXAM_TYPES].map(
-                (examType) => {
+          return (
+            <div
+              key={room.slug}
+              className="rounded-[24px] border border-slate-200 bg-white px-4 py-4"
+            >
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{room.name}</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Selecione os exames que entram nesta sala.
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {roomExams.map((examType) => {
                   const checked = selectedExams.includes(examType);
                   const quantity = examQuantities[examType] ?? 1;
 
@@ -92,12 +114,63 @@ export function ExamsSection({
                       </div>
                     </label>
                   );
-                }
-              )}
+                })}
+              </div>
+
+              {showCefalometria ? (
+                <label className="mt-3 flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={pipelineFlags.com_cefalometria}
+                    onChange={(e) => onTogglePipelineFlag("com_cefalometria", e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer"
+                  />
+                  <span className="text-sm text-slate-700">Cefalometria</span>
+                </label>
+              ) : null}
+
+              {showImpressao ? (
+                <label className="mt-3 flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={pipelineFlags.com_impressao_fotografia}
+                    onChange={(e) => onTogglePipelineFlag("com_impressao_fotografia", e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer"
+                  />
+                  <span className="text-sm text-slate-700">Com impressão</span>
+                </label>
+              ) : null}
+
+              {showLaboratorio ? (
+                <label className="mt-3 flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={pipelineFlags.com_laboratorio_externo_escaneamento}
+                    onChange={(e) => onTogglePipelineFlag("com_laboratorio_externo_escaneamento", e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer"
+                  />
+                  <span className="text-sm text-slate-700">Laboratório externo</span>
+                </label>
+              ) : null}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {showLaudo ? (
+        <div className="mt-4 rounded-[24px] border border-slate-200 bg-white px-4 py-4">
+          <p className="mb-3 text-sm font-semibold text-slate-900">Desdobramentos</p>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={pipelineFlags.com_laudo}
+              onChange={(e) => onTogglePipelineFlag("com_laudo", e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer"
+            />
+            <span className="text-sm text-slate-700">Laudo</span>
+          </label>
+        </div>
+      ) : null}
     </div>
   );
 }
