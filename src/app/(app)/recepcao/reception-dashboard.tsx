@@ -27,6 +27,7 @@ import type {
   AttendanceWithQueueItems,
   ExamRoomRecord,
   ExamType,
+  PipelineFlags,
   QueueItemRecord,
 } from "@/lib/database.types";
 import {
@@ -55,13 +56,6 @@ type ReceptionDashboardProps = {
 };
 
 type StatusFilter = AttendanceOverallStatus | "todos";
-
-type PipelineFlags = {
-  com_laudo: boolean;
-  com_cefalometria: boolean;
-  com_impressao_fotografia: boolean;
-  com_laboratorio_externo_escaneamento: boolean;
-};
 
 const PIPELINE_FLAGS_DEFAULT: PipelineFlags = {
   com_laudo: false,
