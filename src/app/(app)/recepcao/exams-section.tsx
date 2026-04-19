@@ -24,6 +24,7 @@ type ExamsSectionProps = {
   onUpdateExamQuantity: (examType: ExamType, quantity: string) => void;
   pipelineFlags: PipelineFlags;
   onTogglePipelineFlag: (flag: keyof PipelineFlags, value: boolean) => void;
+  pipelineFlagsReadOnly?: boolean;
 };
 
 export function ExamsSection({
@@ -34,6 +35,7 @@ export function ExamsSection({
   onUpdateExamQuantity,
   pipelineFlags,
   onTogglePipelineFlag,
+  pipelineFlagsReadOnly = false,
 }: ExamsSectionProps) {
   const showLaudo = selectedExams.some((e) => LAUDO_EXAMS.has(e));
 
@@ -118,36 +120,39 @@ export function ExamsSection({
               </div>
 
               {showCefalometria ? (
-                <label className="mt-3 flex cursor-pointer items-center gap-2">
+                <label className={cn("mt-3 flex items-center gap-2", pipelineFlagsReadOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
                   <input
                     type="checkbox"
                     checked={pipelineFlags.com_cefalometria}
                     onChange={(e) => onTogglePipelineFlag("com_cefalometria", e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer"
+                    disabled={pipelineFlagsReadOnly}
+                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer disabled:cursor-not-allowed"
                   />
                   <span className="text-sm text-slate-700">Cefalometria</span>
                 </label>
               ) : null}
 
               {showImpressao ? (
-                <label className="mt-3 flex cursor-pointer items-center gap-2">
+                <label className={cn("mt-3 flex items-center gap-2", pipelineFlagsReadOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
                   <input
                     type="checkbox"
                     checked={pipelineFlags.com_impressao_fotografia}
                     onChange={(e) => onTogglePipelineFlag("com_impressao_fotografia", e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer"
+                    disabled={pipelineFlagsReadOnly}
+                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer disabled:cursor-not-allowed"
                   />
                   <span className="text-sm text-slate-700">Com impressão</span>
                 </label>
               ) : null}
 
               {showLaboratorio ? (
-                <label className="mt-3 flex cursor-pointer items-center gap-2">
+                <label className={cn("mt-3 flex items-center gap-2", pipelineFlagsReadOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
                   <input
                     type="checkbox"
                     checked={pipelineFlags.com_laboratorio_externo_escaneamento}
                     onChange={(e) => onTogglePipelineFlag("com_laboratorio_externo_escaneamento", e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer"
+                    disabled={pipelineFlagsReadOnly}
+                    className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer disabled:cursor-not-allowed"
                   />
                   <span className="text-sm text-slate-700">Laboratório externo</span>
                 </label>
@@ -160,12 +165,13 @@ export function ExamsSection({
       {showLaudo ? (
         <div className="mt-4 rounded-[24px] border border-slate-200 bg-white px-4 py-4">
           <p className="mb-3 text-sm font-semibold text-slate-900">Desdobramentos</p>
-          <label className="flex cursor-pointer items-center gap-2">
+          <label className={cn("flex items-center gap-2", pipelineFlagsReadOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
             <input
               type="checkbox"
               checked={pipelineFlags.com_laudo}
               onChange={(e) => onTogglePipelineFlag("com_laudo", e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer"
+              disabled={pipelineFlagsReadOnly}
+              className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer disabled:cursor-not-allowed"
             />
             <span className="text-sm text-slate-700">Laudo</span>
           </label>

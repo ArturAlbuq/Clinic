@@ -266,6 +266,7 @@ export function ReceptionEditAttendanceCard({
             onUpdateExamQuantity={updateExamQuantity}
             pipelineFlags={attendancePipelineFlags}
             onTogglePipelineFlag={noopTogglePipelineFlag}
+            pipelineFlagsReadOnly
           />
 
           <div className="flex flex-wrap gap-3">
