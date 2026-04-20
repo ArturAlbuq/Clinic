@@ -238,6 +238,10 @@ export function ReceptionDashboard({
         patientRegistrationNumber: patientRegistrationNumber.trim() || null,
         priority,
         selectedExams,
+        comLaudo: pipelineFlags.com_laudo,
+        comCefalometria: pipelineFlags.com_cefalometria,
+        comImpressaoFotografia: pipelineFlags.com_impressao_fotografia,
+        comLaboratorioExternoEscaneamento: pipelineFlags.com_laboratorio_externo_escaneamento,
       }),
     });
 

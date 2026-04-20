@@ -156,30 +156,40 @@ async function runDirectRegisterExamRepetition(
     return jsonError("Erro ao registrar repeticao. Tente novamente.", 500);
   }
 
-  const repetitionIndex = Math.max(priorCountResult.count ?? 0, 1);
-
-  const upsertResult = await adminSupabase
+  // Count existing repetitions for this queue item to get sequence number
+  const existingRepsResult = await adminSupabase
     .from("exam_repetitions")
-    .upsert(
-      {
-        exam_type: queueItem.exam_type,
-        queue_item_id: queueItemId,
-        repetition_index: repetitionIndex,
-        repetition_reason: reason,
-        room_slug: queueItem.room_slug,
-        technician_id: technicianId,
-      },
-      {
-        onConflict: "queue_item_id",
-      },
-    )
+    .select("id", { count: "exact", head: true })
+    .eq("queue_item_id", queueItemId);
+
+  if (existingRepsResult.error) {
+    logServerError(
+      "register_exam_repetition.direct_count_existing_reps",
+      existingRepsResult.error,
+    );
+    return jsonError("Erro ao registrar repeticao. Tente novamente.", 500);
+  }
+
+  const repetitionSequence = (existingRepsResult.count ?? 0) + 1;
+
+  const insertResult = await adminSupabase
+    .from("exam_repetitions")
+    .insert({
+      exam_type: queueItem.exam_type,
+      queue_item_id: queueItemId,
+      repetition_index: Math.max(priorCountResult.count ?? 0, 1),
+      repetition_reason: reason,
+      room_slug: queueItem.room_slug,
+      technician_id: technicianId,
+      repetition_sequence: repetitionSequence,
+    })
     .select("id")
     .single();
 
-  if (upsertResult.error || !upsertResult.data?.id) {
-    logServerError("register_exam_repetition.direct_upsert", upsertResult.error);
+  if (insertResult.error || !insertResult.data?.id) {
+    logServerError("register_exam_repetition.direct_insert", insertResult.error);
 
-    const message = upsertResult.error?.message ?? "";
+    const message = insertResult.error?.message ?? "";
     if (
       message.includes("repetition_reason") ||
       message.includes("register_exam_repetition") ||
@@ -196,7 +206,7 @@ async function runDirectRegisterExamRepetition(
 
   return NextResponse.json(
     {
-      repetitionId: upsertResult.data.id,
+      repetitionId: insertResult.data.id,
       success: true,
     },
     { status: 201 },

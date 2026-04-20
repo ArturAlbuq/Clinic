@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup Admin — Antes e Depois</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f1f5f9; padding: 24px; color: #0f172a; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 32px; }
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+
+  .col-header {
+    font-size: 15px; font-weight: 800; padding: 10px 16px;
+    border-radius: 12px; margin-bottom: 16px; text-align: center;
+  }
+  .col-header.before { background: #fef2f2; color: #dc2626; }
+  .col-header.after  { background: #f0fdf4; color: #15803d; }
+
+  .panel-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.15em; color: #64748b; margin-bottom: 10px;
+  }
+
+  /* Metric cards */
+  .metrics-grid { display: grid; gap: 8px; }
+  .metrics-6 { grid-template-columns: repeat(6, 1fr); }
+  .metrics-6-new { grid-template-columns: repeat(6, 1fr); }
+  .metric-card {
+    background: white; border: 1px solid #e2e8f0;
+    border-radius: 18px; padding: 14px 12px 12px; min-width: 0;
+  }
+  .mc-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #64748b; }
+  .mc-value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+  .mc-helper { font-size: 9px; color: #94a3b8; margin-top: 2px; }
+  .accent-teal  .mc-value { color: #0d9488; }
+  .accent-slate .mc-value { color: #475569; }
+  .accent-amber .mc-value { color: #d97706; }
+  .accent-rose  .mc-value { color: #e11d48; }
+  .accent-cyan  .mc-value { color: #0891b2; }
+
+  /* Highlight novo card */
+  .card-new {
+    border-color: #67e8f9 !important;
+    background: #ecfeff !important;
+    position: relative;
+  }
+  .card-new::after {
+    content: "NOVO";
+    position: absolute;
+    top: 6px; right: 8px;
+    font-size: 8px; font-weight: 800; letter-spacing: 0.12em;
+    color: #0891b2; background: #cffafe; border-radius: 4px; padding: 1px 5px;
+  }
+
+  /* Card removido */
+  .card-removed {
+    position: relative;
+    border-color: #fca5a5 !important;
+  }
+  .card-removed::after {
+    content: "REMOVIDO";
+    position: absolute; inset: 0;
+    background: rgba(239,68,68,0.1);
+    border: 2px dashed #ef4444;
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.15em; color: #ef4444;
+  }
+
+  /* Bloco resumo operacional */
+  .resumo-section {
+    display: grid; grid-template-columns: 1.1fr 0.9fr;
+    gap: 8px; margin-top: 10px;
+  }
+  .app-panel {
+    background: white; border: 1px solid #e2e8f0;
+    border-radius: 28px; padding: 18px 20px;
+  }
+  .resumo-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #64748b; }
+  .resumo-title { font-size: 17px; font-weight: 700; margin-top: 4px; }
+  .resumo-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+  .espera-badge { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; color: #334155; white-space: nowrap; }
+  .pills-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 14px; }
+  .pill { border: 1px solid #e2e8f0; border-radius: 14px; padding: 9px 12px; }
+  .pill-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
+  .pill-value { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .pill-teal  { border-color: #99f6e4; background: #f0fdf4; }
+  .pill-teal  .pill-value { color: #0d9488; }
+  .pill-amber { border-color: #fde68a; background: #fffbeb; }
+  .pill-amber .pill-value { color: #d97706; }
+  .pill-slate .pill-value { color: #475569; }
+  .priority-col { display: grid; gap: 8px; }
+
+  /* Bloco removido (seção inteira) */
+  .section-removed {
+    position: relative; margin-top: 10px;
+    border: 2px dashed #ef4444; border-radius: 30px; overflow: hidden;
+  }
+  .section-removed-label {
+    position: absolute; top: 8px; right: 12px; z-index: 1;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.15em;
+    color: #ef4444; background: rgba(255,255,255,0.92);
+    padding: 2px 8px; border-radius: 6px;
+  }
+  .section-removed .resumo-section { opacity: 0.35; pointer-events: none; }
+
+  /* Tabs */
+  .tabs-panel { margin-top: 10px; display: flex; justify-content: center; }
+  .tabs-panel-inner {
+    background: white; border: 1px solid #e2e8f0;
+    border-radius: 28px; padding: 20px 32px;
+    display: inline-flex; flex-direction: column; align-items: center;
+  }
+
+  /* ANTES: título à esquerda, tabs à direita */
+  .tabs-before {
+    display: flex; flex-wrap: wrap;
+    align-items: center; justify-content: space-between; gap: 10px;
+  }
+
+  /* DEPOIS: tudo centralizado */
+  .tabs-after {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 16px; text-align: center;
+  }
+
+  .tab-bar {
+    display: inline-flex; border: 1px solid #e2e8f0;
+    background: #f8fafc; border-radius: 999px; padding: 6px; gap: 4px;
+  }
+  .tab-btn {
+    border-radius: 999px; padding: 10px 26px;
+    font-size: 13px; font-weight: 600; color: #64748b; white-space: nowrap;
+  }
+  .tab-btn.active { background: white; color: #0f172a; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+
+  .section-gap { margin-top: 10px; }
+
+  .annotation {
+    font-size: 11px; color: #64748b; margin-top: 8px; padding: 8px 12px;
+    background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;
+  }
+  .annotation.green { border-color: #86efac; background: #f0fdf4; color: #15803d; }
+  .annotation strong { color: #0f172a; }
+  code { font-family: monospace; font-size: 10px; background: #f1f5f9; padding: 1px 4px; border-radius: 4px; }
+
+  .legend { display: flex; gap: 16px; margin-top: 28px; align-items: center; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #64748b; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 4px; }
+  .dot-removed { background: rgba(239,68,68,0.15); border: 2px dashed #ef4444; }
+  .dot-new     { background: #cffafe; border: 2px solid #0891b2; }
+  .dot-kept    { background: #e2e8f0; border: 2px solid #94a3b8; }
+</style>
+</head>
+<body>
+
+<h1>Mockup — Painel Admin: Antes e Depois</h1>
+<p class="subtitle">Mudança revisada: "80+ esperando" → "Espera média" · Bloco Resumo Operacional removido · Tabs centralizadas</p>
+
+<div class="columns">
+
+  <!-- ===== ANTES ===== -->
+  <div>
+    <div class="col-header before">ANTES — Estado atual</div>
+
+    <div class="panel-label">Cards de resumo — 6 colunas</div>
+    <div class="metrics-grid metrics-6">
+      <div class="metric-card accent-teal">
+        <div class="mc-label">Cadastros</div><div class="mc-value">24</div>
+        <div class="mc-helper">Atendimentos criados</div>
+      </div>
+      <div class="metric-card accent-slate">
+        <div class="mc-label">Exames</div><div class="mc-value">41</div>
+        <div class="mc-helper">Itens nas salas</div>
+      </div>
+      <div class="metric-card accent-amber">
+        <div class="mc-label">Aguardando</div><div class="mc-value">7</div>
+        <div class="mc-helper">Sem exame iniciado</div>
+      </div>
+      <div class="metric-card accent-amber card-removed">
+        <div class="mc-label">80+ esperando</div><div class="mc-value">2</div>
+        <div class="mc-helper">Maior prioridade na fila</div>
+      </div>
+      <div class="metric-card accent-rose">
+        <div class="mc-label">Exames cancelados</div><div class="mc-value">3</div>
+        <div class="mc-helper">Cancelamentos</div>
+      </div>
+      <div class="metric-card accent-teal">
+        <div class="mc-label">Em andamento</div><div class="mc-value">5</div>
+        <div class="mc-helper">Com exame ativo</div>
+      </div>
+    </div>
+
+    <!-- Resumo Operacional — vai ser removido -->
+    <div class="section-removed">
+      <div class="section-removed-label">BLOCO REMOVIDO</div>
+      <div class="resumo-section">
+        <div class="app-panel">
+          <div class="resumo-header">
+            <div>
+              <div class="resumo-tag">Resumo operacional</div>
+              <div class="resumo-title">O que pede atenção agora</div>
+            </div>
+            <span class="espera-badge">Espera média 12min</span>
+          </div>
+          <div class="pills-grid">
+            <div class="pill pill-teal"><div class="pill-label">Em andamento</div><div class="pill-value">5 atendimentos</div></div>
+            <div class="pill pill-amber"><div class="pill-label">Aguardando</div><div class="pill-value">7 pacientes</div></div>
+            <div class="pill pill-slate"><div class="pill-label">Finalizados</div><div class="pill-value">12 concluídos</div></div>
+            <div class="pill pill-amber"><div class="pill-label">Maior espera</div><div class="pill-value">38min</div></div>
+          </div>
+        </div>
+        <div class="priority-col">
+          <div class="metric-card"><div class="mc-label">Normal</div><div class="mc-value" style="color:#334155">15</div><div class="mc-helper">Prioridade base</div></div>
+          <div class="metric-card accent-teal"><div class="mc-label">60+ e outras</div><div class="mc-value">7</div><div class="mc-helper">Prioridade intermediária</div></div>
+          <div class="metric-card accent-amber"><div class="mc-label">80+</div><div class="mc-value">2</div><div class="mc-helper">Maior prioridade</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs: layout atual (título esquerda, tabs direita) -->
+    <div class="tabs-panel">
+      <div class="tabs-panel-inner">
+        <div class="tabs-before">
+          <div>
+            <div class="resumo-tag">Navegação</div>
+            <div class="resumo-title" style="font-size:15px">Operação, busca, relatórios e exclusões</div>
+          </div>
+          <div class="tab-bar">
+            <div class="tab-btn active">Operação</div>
+            <div class="tab-btn">Busca de pacientes</div>
+            <div class="tab-btn">Relatórios</div>
+            <div class="tab-btn">Registro de exclusões</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DEPOIS ===== -->
+  <div>
+    <div class="col-header after">DEPOIS — Após as mudanças</div>
+
+    <div class="panel-label">Cards de resumo — 6 colunas (Espera média no lugar de 80+)</div>
+    <div class="metrics-grid metrics-6-new">
+      <div class="metric-card accent-teal">
+        <div class="mc-label">Cadastros</div><div class="mc-value">24</div>
+        <div class="mc-helper">Atendimentos criados</div>
+      </div>
+      <div class="metric-card accent-slate">
+        <div class="mc-label">Exames</div><div class="mc-value">41</div>
+        <div class="mc-helper">Itens nas salas</div>
+      </div>
+      <div class="metric-card accent-amber">
+        <div class="mc-label">Aguardando</div><div class="mc-value">7</div>
+        <div class="mc-helper">Sem exame iniciado</div>
+      </div>
+      <div class="metric-card accent-cyan card-new">
+        <div class="mc-label">Espera média</div><div class="mc-value">12min</div>
+        <div class="mc-helper">Fila ativa (exceto cancelados)</div>
+      </div>
+      <div class="metric-card accent-rose">
+        <div class="mc-label">Exames cancelados</div><div class="mc-value">3</div>
+        <div class="mc-helper">Cancelamentos</div>
+      </div>
+      <div class="metric-card accent-teal">
+        <div class="mc-label">Em andamento</div><div class="mc-value">5</div>
+        <div class="mc-helper">Com exame ativo</div>
+      </div>
+    </div>
+
+    <div class="annotation green section-gap">
+      ✓ Bloco "Resumo Operacional" removido por completo — sem gap visual aqui
+    </div>
+
+    <!-- Tabs: centralizadas -->
+    <div class="tabs-panel">
+      <div class="tabs-panel-inner">
+        <div class="tabs-after">
+          <div>
+            <div class="resumo-tag">Navegação</div>
+          </div>
+          <div class="tab-bar">
+            <div class="tab-btn active">Operação</div>
+            <div class="tab-btn">Busca de pacientes</div>
+            <div class="tab-btn">Relatórios</div>
+            <div class="tab-btn">Registro de exclusões</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot dot-removed"></div> Removido</div>
+  <div class="legend-item"><div class="legend-dot dot-new"></div> Novo / substituído</div>
+  <div class="legend-item"><div class="legend-dot dot-kept"></div> Sem mudança</div>
+</div>
+
+<div class="annotation" style="margin-top:16px; max-width:760px;">
+  <strong>Variáveis afetadas:</strong>
+  <code>topPriorityWaiting</code> (removida) ·
+  <code>longestWaitingItem / longestWaitMinutes / longestWaitDisplay</code> (removidas) ·
+  <code>getAverageWaitMinutes(...)</code> sobe para o card do topo (já existe, só muda de lugar) ·
+  <code>waitingAttendances</code>, <code>activeAttendances</code>, <code>finishedAttendances</code> permanecem (usadas em outros lugares)
+</div>
+
+</body>
+</html>
