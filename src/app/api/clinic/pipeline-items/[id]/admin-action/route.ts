@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { logServerError } from "@/lib/server-error";
+import type { PipelineStatus } from "@/lib/database.types";
 
 type AdminActionBody = {
   action: "reopen" | "correct-status";
-  newStatus: string;
+  newStatus: PipelineStatus;
   reason: string;
 };
 
