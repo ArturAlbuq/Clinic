@@ -728,6 +728,10 @@ export type Database = {
         Args: { p_days: number; p_start: string }
         Returns: string
       }
+      backfill_sla_deadline_for_subtype: {
+        Args: { p_business_days: number; p_pipeline_subtype: string }
+        Returns: undefined
+      }
       cancel_attendance: {
         Args: {
           p_attendance_id: string
@@ -1074,3 +1078,13 @@ export const Constants = {
     },
   },
 } as const
+
+// Convenience type aliases
+export type PipelineStatus = Database["public"]["Enums"]["pipeline_status"];
+export type PipelineType = Database["public"]["Enums"]["pipeline_type"];
+export type AppRole = Database["public"]["Enums"]["app_role"];
+export type ProfileRecord = Tables<"profiles">;
+export type AttendanceRecord = Tables<"attendances">;
+export type QueueItemRecord = Tables<"queue_items">;
+export type QueueStatus = Database["public"]["Enums"]["queue_status"];
+export type ExamType = Database["public"]["Enums"]["exam_type"];
