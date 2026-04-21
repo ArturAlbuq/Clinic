@@ -24,6 +24,8 @@ type ExamsSectionProps = {
   onUpdateExamQuantity: (examType: ExamType, quantity: string) => void;
   pipelineFlags: PipelineFlags;
   onTogglePipelineFlag: (flag: keyof PipelineFlags, value: boolean) => void;
+  laudoPerExam: Partial<Record<ExamType, boolean>>;
+  onToggleLaudo: (examType: ExamType, value: boolean) => void;
   pipelineFlagsReadOnly?: boolean;
 };
 
@@ -35,10 +37,10 @@ export function ExamsSection({
   onUpdateExamQuantity,
   pipelineFlags,
   onTogglePipelineFlag,
+  laudoPerExam,
+  onToggleLaudo,
   pipelineFlagsReadOnly = false,
 }: ExamsSectionProps) {
-  const showLaudo = selectedExams.some((e) => LAUDO_EXAMS.has(e));
-
   return (
     <div>
       <span className="mb-4 block text-sm font-semibold text-slate-700">
@@ -70,6 +72,7 @@ export function ExamsSection({
                 {roomExams.map((examType) => {
                   const checked = selectedExams.includes(examType);
                   const quantity = examQuantities[examType] ?? 1;
+                  const showLaudo = checked && LAUDO_EXAMS.has(examType);
 
                   return (
                     <label
@@ -112,6 +115,24 @@ export function ExamsSection({
                               className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
                             />
                           </div>
+                        ) : null}
+                        {showLaudo ? (
+                          <label
+                            className={cn(
+                              "flex items-center gap-2",
+                              pipelineFlagsReadOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                            )}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={laudoPerExam[examType] ?? false}
+                              onChange={(e) => onToggleLaudo(examType, e.target.checked)}
+                              disabled={pipelineFlagsReadOnly}
+                              className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer disabled:cursor-not-allowed"
+                            />
+                            <span className="text-sm text-slate-700">Laudo</span>
+                          </label>
                         ) : null}
                       </div>
                     </label>
@@ -161,22 +182,6 @@ export function ExamsSection({
           );
         })}
       </div>
-
-      {showLaudo ? (
-        <div className="mt-4 rounded-[24px] border border-slate-200 bg-white px-4 py-4">
-          <p className="mb-3 text-sm font-semibold text-slate-900">Desdobramentos</p>
-          <label className={cn("flex items-center gap-2", pipelineFlagsReadOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
-            <input
-              type="checkbox"
-              checked={pipelineFlags.com_laudo}
-              onChange={(e) => onTogglePipelineFlag("com_laudo", e.target.checked)}
-              disabled={pipelineFlagsReadOnly}
-              className="h-4 w-4 rounded border-slate-300 text-cyan-600 cursor-pointer disabled:cursor-not-allowed"
-            />
-            <span className="text-sm text-slate-700">Laudo</span>
-          </label>
-        </div>
-      ) : null}
     </div>
   );
 }
