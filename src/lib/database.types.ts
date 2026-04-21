@@ -23,7 +23,6 @@ export type Database = {
           com_cefalometria: boolean
           com_impressao_fotografia: boolean
           com_laboratorio_externo_escaneamento: boolean
-          com_laudo: boolean
           created_at: string
           created_by: string
           deleted_at: string | null
@@ -47,7 +46,6 @@ export type Database = {
           com_cefalometria?: boolean
           com_impressao_fotografia?: boolean
           com_laboratorio_externo_escaneamento?: boolean
-          com_laudo?: boolean
           created_at?: string
           created_by: string
           deleted_at?: string | null
@@ -71,7 +69,6 @@ export type Database = {
           com_cefalometria?: boolean
           com_impressao_fotografia?: boolean
           com_laboratorio_externo_escaneamento?: boolean
-          com_laudo?: boolean
           created_at?: string
           created_by?: string
           deleted_at?: string | null
@@ -471,6 +468,7 @@ export type Database = {
           canceled_by: string | null
           cancellation_authorized_by: string | null
           cancellation_reason: string | null
+          com_laudo: boolean
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -502,6 +500,7 @@ export type Database = {
           canceled_by?: string | null
           cancellation_authorized_by?: string | null
           cancellation_reason?: string | null
+          com_laudo?: boolean
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -533,6 +532,7 @@ export type Database = {
           canceled_by?: string | null
           cancellation_authorized_by?: string | null
           cancellation_reason?: string | null
+          com_laudo?: boolean
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -1099,7 +1099,6 @@ export type AttendanceWithQueueItems = AttendanceRecord & {
 };
 
 export type PipelineFlags = {
-  com_laudo: boolean;
   com_cefalometria: boolean;
   com_impressao_fotografia: boolean;
   com_laboratorio_externo_escaneamento: boolean;
