@@ -16,7 +16,7 @@ type CreateAttendanceBody = {
   patientRegistrationNumber?: string;
   priority?: AttendancePriority;
   selectedExams?: ExamType[];
-  comLaudo?: boolean;
+  comLaudoPerExam?: Partial<Record<ExamType, boolean>>;
   comCefalometria?: boolean;
   comImpressaoFotografia?: boolean;
   comLaboratorioExternoEscaneamento?: boolean;
@@ -335,7 +335,7 @@ export async function POST(request: Request) {
       p_patient_name: patientName,
       p_patient_registration_number: patientRegistrationNumber || undefined,
       p_priority: priority,
-      p_com_laudo: body.comLaudo ?? false,
+      p_com_laudo_per_exam: body.comLaudoPerExam ?? {},
       p_com_cefalometria: body.comCefalometria ?? false,
       p_com_impressao_fotografia: body.comImpressaoFotografia ?? false,
       p_com_laboratorio_externo_escaneamento: body.comLaboratorioExternoEscaneamento ?? false,
