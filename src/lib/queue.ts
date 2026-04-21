@@ -210,9 +210,9 @@ export async function fetchDeletedAttendanceRecords(
   );
 
   for (const item of queueItems) {
-    const currentItems = queueItemsByAttendanceId.get(item.attendance_id) ?? [];
+    const currentItems = queueItemsByAttendanceId.get(item.attendance_id!) ?? [];
     currentItems.push(item);
-    queueItemsByAttendanceId.set(item.attendance_id, currentItems);
+    queueItemsByAttendanceId.set(item.attendance_id!, currentItems);
   }
 
   return attendances.map((attendance) => {
@@ -432,7 +432,7 @@ export function combineQueueItemsWithAttendances(
 
   return queueItems.map((item) => ({
     ...item,
-    attendance: attendanceMap.get(item.attendance_id) ?? null,
+    attendance: attendanceMap.get(item.attendance_id!) ?? null,
   })) satisfies QueueItemWithAttendance[];
 }
 
@@ -443,9 +443,9 @@ export function groupAttendancesWithQueueItems(
   const groupedItems = new Map<string, QueueItemRecord[]>();
 
   for (const item of queueItems) {
-    const currentItems = groupedItems.get(item.attendance_id) ?? [];
+    const currentItems = groupedItems.get(item.attendance_id!) ?? [];
     currentItems.push(item);
-    groupedItems.set(item.attendance_id, currentItems);
+    groupedItems.set(item.attendance_id!, currentItems);
   }
 
   return attendances.map((attendance) => ({

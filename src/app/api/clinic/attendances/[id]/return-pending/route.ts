@@ -46,7 +46,7 @@ export async function POST(
   const { data, error } = await supabase.rpc("set_attendance_return_pending", {
     p_attendance_id: id,
     p_is_pending: body.isPending,
-    p_reason: body.reason?.trim() || null,
+    p_reason: body.reason?.trim() || undefined,
   });
 
   if (error || !data) {

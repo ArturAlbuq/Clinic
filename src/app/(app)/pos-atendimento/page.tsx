@@ -13,7 +13,7 @@ export default async function PosAtendimentoPage() {
     .from("pipeline_items")
     .select(
       `id, attendance_id, queue_item_id, pipeline_type, status, responsible_id, sla_deadline, metadata, opened_at, updated_at,
-       attendances ( patient_name ), queue_items ( exam_type ), profiles:responsible_id ( full_name )`
+       attendances ( patient_name ), queue_items ( exam_type ), profiles!pipeline_items_responsible_id_fkey ( full_name )`
     )
     .neq("status", "publicado_finalizado")
     .order("opened_at", { ascending: true });

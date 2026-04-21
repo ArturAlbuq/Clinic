@@ -148,9 +148,9 @@ export async function PATCH(
   const { data, error } = await supabase.rpc("update_attendance_registration", {
     p_attendance_id: id,
     p_exam_quantities: examQuantities,
-    p_notes: notes || null,
+    p_notes: notes || "",
     p_patient_name: patientName,
-    p_patient_registration_number: patientRegistrationNumber || null,
+    p_patient_registration_number: patientRegistrationNumber || undefined,
   });
 
   if (error || !data) {

@@ -291,11 +291,11 @@ async function runDirectQueueItemCancellation(
 
   const attendanceResult = await fetchAttendanceById(
     supabase,
-    currentItemResult.queueItem.attendance_id,
+    currentItemResult.queueItem.attendance_id!,
   );
   const attendanceItemsResult = await fetchAttendanceQueueItems(
     supabase,
-    currentItemResult.queueItem.attendance_id,
+    currentItemResult.queueItem.attendance_id!,
   );
 
   if (attendanceResult.error || !attendanceResult.attendance) {
@@ -346,9 +346,9 @@ async function runLegacyAttendanceReturnPending(
   }
 
   const legacyAttempt = await supabase.rpc("set_attendance_return_pending", {
-    p_attendance_id: currentItemResult.queueItem.attendance_id,
+    p_attendance_id: currentItemResult.queueItem.attendance_id!,
     p_is_pending: isPending,
-    p_reason: reason,
+    p_reason: reason ?? undefined,
   });
 
   const payload = legacyAttempt.data as AttendanceMutationPayload | null;
@@ -376,7 +376,7 @@ async function runLegacyAttendanceReturnPending(
   const refreshedItemResult = await fetchQueueItemById(supabase, id);
   const attendanceItemsResult = await fetchAttendanceQueueItems(
     supabase,
-    currentItemResult.queueItem.attendance_id,
+    currentItemResult.queueItem.attendance_id!,
   );
 
   if (refreshedItemResult.error || !refreshedItemResult.queueItem) {
@@ -467,7 +467,7 @@ async function runDirectReceptionReturnPending(
           return_pending_by: isPending ? actorUserId : null,
           return_pending_reason: isPending ? reason : null,
         })
-        .eq("id", currentItemResult.queueItem.attendance_id)
+        .eq("id", currentItemResult.queueItem.attendance_id!)
         .is("deleted_at", null)
         .select("*")
         .maybeSingle();
@@ -487,7 +487,7 @@ async function runDirectReceptionReturnPending(
       const refreshedItemResult = await fetchQueueItemById(adminSupabase, id);
       const attendanceItemsResult = await fetchAttendanceQueueItems(
         adminSupabase,
-        currentItemResult.queueItem.attendance_id,
+        currentItemResult.queueItem.attendance_id!,
       );
 
       if (refreshedItemResult.error || !refreshedItemResult.queueItem) {
@@ -519,11 +519,11 @@ async function runDirectReceptionReturnPending(
 
   const attendanceResult = await fetchAttendanceById(
     adminSupabase,
-    currentItemResult.queueItem.attendance_id,
+    currentItemResult.queueItem.attendance_id!,
   );
   const attendanceItemsResult = await fetchAttendanceQueueItems(
     adminSupabase,
-    currentItemResult.queueItem.attendance_id,
+    currentItemResult.queueItem.attendance_id!,
   );
 
   if (attendanceResult.error || !attendanceResult.attendance) {
@@ -579,7 +579,7 @@ export async function PATCH(
     }
 
     const cancelAttempt = await supabase.rpc("cancel_queue_item", {
-      p_authorized_by: null,
+      p_authorized_by: undefined,
       p_queue_item_id: id,
       p_reason: reason,
     });
@@ -626,7 +626,7 @@ export async function PATCH(
     const returnAttempt = await supabase.rpc("set_queue_item_return_pending", {
       p_is_pending: body.isPending,
       p_queue_item_id: id,
-      p_reason: reason || null,
+      p_reason: reason || undefined,
     });
 
     const payload = returnAttempt.data as QueueItemMutationPayload | null;

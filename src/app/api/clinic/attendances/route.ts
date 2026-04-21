@@ -331,9 +331,9 @@ export async function POST(request: Request) {
     {
       p_exam_quantities: examQuantities,
       p_exam_types: selectedExams,
-      p_notes: notes || null,
+      p_notes: notes || "",
       p_patient_name: patientName,
-      p_patient_registration_number: patientRegistrationNumber || null,
+      p_patient_registration_number: patientRegistrationNumber || undefined,
       p_priority: priority,
       p_com_laudo: body.comLaudo ?? false,
       p_com_cefalometria: body.comCefalometria ?? false,
@@ -348,9 +348,9 @@ export async function POST(request: Request) {
   if (!payload && isLegacyRpcSignatureError(rpcError?.message)) {
     const legacyAttempt = await supabase.rpc("create_attendance_with_queue_items", {
       p_exam_types: selectedExams,
-      p_notes: notes || null,
+      p_notes: notes || "",
       p_patient_name: patientName,
-      p_patient_registration_number: patientRegistrationNumber,
+      p_patient_registration_number: patientRegistrationNumber ?? undefined,
       p_priority: priority,
     });
 
@@ -408,7 +408,7 @@ export async function PATCH(request: Request) {
 
     const cancelAttempt = await supabase.rpc("cancel_attendance", {
       p_attendance_id: attendanceId,
-      p_authorized_by: null,
+      p_authorized_by: undefined,
       p_reason: reason,
     });
 
@@ -444,7 +444,7 @@ export async function PATCH(request: Request) {
     const { data, error } = await supabase.rpc("set_attendance_return_pending", {
       p_attendance_id: attendanceId,
       p_is_pending: body.isPending,
-      p_reason: reason || null,
+      p_reason: reason || undefined,
     });
 
     if (error || !data) {
@@ -501,9 +501,9 @@ export async function PATCH(request: Request) {
     const { data, error } = await supabase.rpc("update_attendance_registration", {
       p_attendance_id: attendanceId,
       p_exam_quantities: examQuantities,
-      p_notes: notes || null,
+      p_notes: notes || "",
       p_patient_name: patientName,
-      p_patient_registration_number: patientRegistrationNumber || null,
+      p_patient_registration_number: patientRegistrationNumber || undefined,
     });
 
     if (error || !data) {

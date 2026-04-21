@@ -1088,3 +1088,23 @@ export type AttendanceRecord = Tables<"attendances">;
 export type QueueItemRecord = Tables<"queue_items">;
 export type QueueStatus = Database["public"]["Enums"]["queue_status"];
 export type ExamType = Database["public"]["Enums"]["exam_type"];
+export type AttendancePriority = Database["public"]["Enums"]["attendance_priority"];
+export type AttendanceOverallStatus = "aguardando" | "pendente_retorno" | "em_andamento" | "finalizado" | "cancelado";
+export type ExamRepetitionRecord = Tables<"exam_repetitions">;
+
+export type ExamRoomRecord = Tables<"exam_rooms">;
+
+export type QueueItemWithAttendance = QueueItemRecord & {
+  attendance: AttendanceRecord | null;
+};
+
+export type AttendanceWithQueueItems = AttendanceRecord & {
+  queueItems: QueueItemRecord[];
+};
+
+export type PipelineFlags = {
+  com_laudo: boolean;
+  com_cefalometria: boolean;
+  com_impressao_fotografia: boolean;
+  com_laboratorio_externo_escaneamento: boolean;
+};

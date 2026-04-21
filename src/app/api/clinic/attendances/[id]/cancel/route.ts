@@ -112,7 +112,7 @@ export async function POST(
 
   const cancelAttempt = await supabase.rpc("cancel_attendance", {
     p_attendance_id: id,
-    p_authorized_by: null,
+    p_authorized_by: undefined,
     p_reason: reason,
   });
 

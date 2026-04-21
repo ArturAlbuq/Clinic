@@ -79,9 +79,11 @@ export const EXAM_ORDER = EXAM_TYPE_ORDER;
 export const EXAM_LABELS: Record<ExamType, string> = {
   fotografia: "Fotografia",
   escaneamento_intra_oral: "Escaneamento intra-oral",
+  fotografia_escaneamento: "Foto/Escaneamento",
   periapical: "Periapical",
   interproximal: "Interproximal",
   panoramica: "Panoramica",
+  panoramico: "Panoramico",
   telerradiografia: "Telerradiografia",
   tomografia: "Tomografia",
 };
@@ -89,9 +91,11 @@ export const EXAM_LABELS: Record<ExamType, string> = {
 export const EXAM_SHORT_LABELS: Record<ExamType, string> = {
   fotografia: "Foto",
   escaneamento_intra_oral: "Scan intra",
+  fotografia_escaneamento: "Foto/Scan",
   periapical: "Periapical",
   interproximal: "Interprox.",
   panoramica: "Panoramica",
+  panoramico: "Panoramico",
   telerradiografia: "Telerradio",
   tomografia: "Tomografia",
 };
@@ -99,9 +103,11 @@ export const EXAM_SHORT_LABELS: Record<ExamType, string> = {
 export const EXAM_TO_ROOM_SLUG: Record<ExamType, RoomSlug> = {
   fotografia: "fotografia-escaneamento",
   escaneamento_intra_oral: "fotografia-escaneamento",
+  fotografia_escaneamento: "fotografia-escaneamento",
   periapical: "periapical",
   interproximal: "periapical",
   panoramica: "panoramico",
+  panoramico: "panoramico",
   telerradiografia: "panoramico",
   tomografia: "tomografia",
 };
