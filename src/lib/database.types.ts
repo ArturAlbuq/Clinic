@@ -775,7 +775,7 @@ export type Database = {
               p_com_cefalometria?: boolean
               p_com_impressao_fotografia?: boolean
               p_com_laboratorio_externo_escaneamento?: boolean
-              p_com_laudo?: boolean
+              p_com_laudo_per_exam?: Json
               p_exam_quantities?: Json
               p_exam_types: Database["public"]["Enums"]["exam_type"][]
               p_notes: string
@@ -857,7 +857,7 @@ export type Database = {
               p_com_cefalometria?: boolean
               p_com_impressao_fotografia?: boolean
               p_com_laboratorio_externo_escaneamento?: boolean
-              p_com_laudo?: boolean
+              p_com_laudo_per_exam?: Json
               p_exam_quantities?: Json
               p_notes: string
               p_patient_name: string

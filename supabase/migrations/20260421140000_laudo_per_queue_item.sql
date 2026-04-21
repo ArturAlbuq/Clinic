@@ -293,7 +293,6 @@ begin
       'periapical',
       'interproximal',
       'panoramica',
-      'telerradiografia',
       'tomografia'
     ) then
     perform public.create_pipeline_item_if_missing(
