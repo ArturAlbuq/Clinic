@@ -52,6 +52,7 @@ function buildQueueItem(
     canceled_by: null,
     cancellation_authorized_by: null,
     cancellation_reason: null,
+    com_laudo: false,
     created_at: "2026-03-28T12:00:00.000Z",
     created_by: "profile-1",
     deleted_at: null,

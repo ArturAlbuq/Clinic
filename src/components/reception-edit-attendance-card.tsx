@@ -43,12 +43,19 @@ export function ReceptionEditAttendanceCard({
   const canEdit =
     isToday && canReceptionEditAttendance(attendance, attendance.queueItems);
   const attendancePipelineFlags: PipelineFlags = {
-    com_laudo: attendance.com_laudo,
     com_cefalometria: attendance.com_cefalometria,
     com_impressao_fotografia: attendance.com_impressao_fotografia,
     com_laboratorio_externo_escaneamento:
       attendance.com_laboratorio_externo_escaneamento,
   };
+
+  const laudoPerExamReadOnly = attendance.queueItems.reduce<Partial<Record<ExamType, boolean>>>(
+    (acc, item) => {
+      if (item.com_laudo) acc[item.exam_type] = true;
+      return acc;
+    },
+    {},
+  );
   function noopTogglePipelineFlag(
     _flag: keyof PipelineFlags,
     _value: boolean,
@@ -266,6 +273,8 @@ export function ReceptionEditAttendanceCard({
             onUpdateExamQuantity={updateExamQuantity}
             pipelineFlags={attendancePipelineFlags}
             onTogglePipelineFlag={noopTogglePipelineFlag}
+            laudoPerExam={laudoPerExamReadOnly}
+            onToggleLaudo={() => {}}
             pipelineFlagsReadOnly
           />
 
