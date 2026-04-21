@@ -357,3 +357,10 @@ begin
   return new;
 end;
 $$;
+
+drop trigger if exists queue_items_open_pipeline_on_finalize on public.queue_items;
+create trigger queue_items_open_pipeline_on_finalize
+after update on public.queue_items
+for each row
+when (new.status = 'finalizado' and old.status <> 'finalizado')
+execute procedure public.handle_queue_item_pipeline_opening();
