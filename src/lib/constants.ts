@@ -196,6 +196,7 @@ export const ROLE_NAVIGATION: Record<
   ],
   gerencia: [
     { href: "/gerencia", label: "Operação" },
+    { href: "/pos-atendimento", label: "Pós-atendimento" },
     { href: "/pos-atendimento/gerencial", label: "Gerencial" },
   ],
 };

@@ -51,7 +51,6 @@ type AuditEvent = {
 type SummaryData = {
   laudo_pendente_envio: number;
   laudo_enviado_radiologista: number;
-  laudo_recebido_radiologista: number;
   laudo_atrasado: number;
   cefalo_pendente_envio: number;
   cefalo_enviado_radiologista: number;
@@ -144,7 +143,7 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
     if (!data) return;
 
     const s: SummaryData = {
-      laudo_pendente_envio: 0, laudo_enviado_radiologista: 0, laudo_recebido_radiologista: 0, laudo_atrasado: 0,
+      laudo_pendente_envio: 0, laudo_enviado_radiologista: 0, laudo_atrasado: 0,
       cefalo_pendente_envio: 0, cefalo_enviado_radiologista: 0, cefalo_atrasado: 0,
       foto_em_ajuste: 0, foto_disponivel_impressao: 0, foto_em_laboratorio: 0, foto_atrasado: 0,
       scan_em_ajuste: 0, scan_laboratorio_externo: 0, scan_atrasado: 0,
@@ -160,7 +159,6 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
       if (item.pipeline_type === "laudo") {
         if (item.status === "pendente_envio") s.laudo_pendente_envio++;
         if (item.status === "enviado_radiologista") s.laudo_enviado_radiologista++;
-        if (item.status === "recebido_radiologista") s.laudo_recebido_radiologista++;
         if (overdue && open) s.laudo_atrasado++;
       }
       if (item.pipeline_type === "cefalometria") {
@@ -252,9 +250,9 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
 
   const pipelineTypes: PipelineType[] = ["laudo", "cefalometria", "fotografia", "escaneamento"];
   const pipelineStatuses: PipelineStatus[] = [
-    "nao_iniciado", "pendente_envio", "enviado_radiologista", "recebido_radiologista",
+    "nao_iniciado", "pendente_envio", "enviado_radiologista",
     "devolvido_radiologista", "recebido_corrigido", "revisado_liberado", "em_ajuste",
-    "publicado_idoc", "disponivel_impressao", "enviado_impressao", "recebido_laboratorio",
+    "publicado_idoc", "disponivel_impressao", "enviado_impressao",
     "enviado_laboratorio_externo", "retornado_laboratorio", "publicado_finalizado",
   ];
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -277,7 +275,6 @@ export function GerencialDashboard({ initialItems, initialTotal, currentProfile 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
             <MetricCard label="Laudos: pendente envio" value={String(summary.laudo_pendente_envio)} helper="aguardando envio" accent="slate" compact />
             <MetricCard label="Laudos: enviado" value={String(summary.laudo_enviado_radiologista)} helper="no radiologista" accent="slate" compact />
-            <MetricCard label="Laudos: recebido" value={String(summary.laudo_recebido_radiologista)} helper="retornou" accent="slate" compact />
             <MetricCard label="Cefalo.: enviado" value={String(summary.cefalo_enviado_radiologista)} helper="no radiologista" accent="slate" compact />
             <MetricCard label="Fotos: em ajuste" value={String(summary.foto_em_ajuste)} helper="em edição" accent="slate" compact />
             <MetricCard label="Fotos: em lab." value={String(summary.foto_em_laboratorio)} helper="enviado impressão" accent="slate" compact />

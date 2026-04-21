@@ -171,8 +171,10 @@ export function RoomQueueBoard({
     });
 
     const payload = (await readJsonResponse<{
+      attendance?: AttendanceRecord;
       error?: string;
       queueItem?: QueueItemRecord;
+      queueItems?: QueueItemRecord[];
     }>(response)) ?? {};
 
     if (!response.ok || !payload.queueItem) {
@@ -181,11 +183,19 @@ export function RoomQueueBoard({
       return;
     }
 
-    setQueueItems((currentItems) =>
-      currentItems.map((currentItem) =>
-        currentItem.id === item.id ? (payload.queueItem as QueueItemRecord) : currentItem,
-      ),
-    );
+    if (payload.attendance) {
+      applyQueueItemMutation(
+        payload.attendance,
+        payload.queueItem,
+        payload.queueItems ?? [],
+      );
+    } else {
+      setQueueItems((currentItems) =>
+        currentItems.map((currentItem) =>
+          currentItem.id === item.id ? (payload.queueItem as QueueItemRecord) : currentItem,
+        ),
+      );
+    }
     setPendingItemId(null);
   }
 

@@ -891,7 +891,6 @@ export type Database = {
         | "nao_iniciado"
         | "pendente_envio"
         | "enviado_radiologista"
-        | "recebido_radiologista"
         | "devolvido_radiologista"
         | "recebido_corrigido"
         | "revisado_liberado"
@@ -899,7 +898,6 @@ export type Database = {
         | "publicado_idoc"
         | "disponivel_impressao"
         | "enviado_impressao"
-        | "recebido_laboratorio"
         | "enviado_laboratorio_externo"
         | "retornado_laboratorio"
         | "publicado_finalizado"
@@ -1054,7 +1052,6 @@ export const Constants = {
         "nao_iniciado",
         "pendente_envio",
         "enviado_radiologista",
-        "recebido_radiologista",
         "devolvido_radiologista",
         "recebido_corrigido",
         "revisado_liberado",
@@ -1062,7 +1059,6 @@ export const Constants = {
         "publicado_idoc",
         "disponivel_impressao",
         "enviado_impressao",
-        "recebido_laboratorio",
         "enviado_laboratorio_externo",
         "retornado_laboratorio",
         "publicado_finalizado",

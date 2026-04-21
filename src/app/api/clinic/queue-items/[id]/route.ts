@@ -681,34 +681,45 @@ export async function PATCH(
     .select("*")
     .maybeSingle();
 
-  if (data) {
-    return NextResponse.json({
-      queueItem: normalizeQueueItemRecord(data as QueueItemRecord),
-    });
-  }
+  const updatedItem = data
+    ? (data as QueueItemRecord)
+    : await (async () => {
+        const { data: currentItem, error: currentItemError } = await supabase
+          .from("queue_items")
+          .select("*")
+          .eq("id", id)
+          .single();
 
-  const { data: currentItem, error: currentItemError } = await supabase
-    .from("queue_items")
-    .select("*")
-    .eq("id", id)
-    .single();
+        if (!currentItemError && currentItem && currentItem.status === body.status) {
+          return currentItem as QueueItemRecord;
+        }
 
-  if (!currentItemError && currentItem && currentItem.status === body.status) {
-    return NextResponse.json({
-      queueItem: normalizeQueueItemRecord(currentItem as QueueItemRecord),
-    });
-  }
+        logServerError("update_queue_item", error ?? currentItemError);
+        return null;
+      })();
 
-  if (error || currentItemError || !currentItem) {
-    logServerError("update_queue_item", error ?? currentItemError);
-
+  if (!updatedItem) {
     return NextResponse.json(
       { error: "Nao foi possivel atualizar o status." },
       { status: 400 },
     );
   }
 
-  return NextResponse.json({
-    queueItem: normalizeQueueItemRecord(currentItem as QueueItemRecord),
-  });
+  const attendanceResult = await fetchAttendanceById(supabase, updatedItem.attendance_id!);
+  const attendanceItemsResult = await fetchAttendanceQueueItems(supabase, updatedItem.attendance_id!);
+
+  if (attendanceResult.error || !attendanceResult.attendance) {
+    logServerError("update_queue_item.fetch_attendance", attendanceResult.error);
+    return NextResponse.json({
+      queueItem: normalizeQueueItemRecord(updatedItem),
+    });
+  }
+
+  return NextResponse.json(
+    normalizeMutationPayload({
+      attendance: attendanceResult.attendance,
+      queueItem: updatedItem,
+      queueItems: attendanceItemsResult.queueItems,
+    }),
+  );
 }

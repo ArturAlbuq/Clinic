@@ -7,6 +7,7 @@ export default async function PosAtendimentoPage() {
     "recepcao",
     "atendimento",
     "admin",
+    "gerencia",
   ]);
 
   const { data: pipelineItems } = await supabase

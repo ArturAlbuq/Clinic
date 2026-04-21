@@ -59,7 +59,6 @@ type HistoryTarget = {
 
 export function PosAtendimentoDashboard({
   initialItems,
-  currentProfile,
 }: Props) {
   const [items, setItems] = useState<PipelineItemRow[]>(initialItems);
   const [filterType, setFilterType] = useState<FilterType>("todos");
@@ -68,6 +67,16 @@ export function PosAtendimentoDashboard({
   const [filterSearch, setFilterSearch] = useState("");
   const [advanceTarget, setAdvanceTarget] = useState<AdvanceTarget | null>(null);
   const [historyTarget, setHistoryTarget] = useState<HistoryTarget | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 60_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const supabase = getBrowserSupabaseClient();
@@ -122,7 +131,6 @@ export function PosAtendimentoDashboard({
   const sorted = useMemo(
     () =>
       [...items].sort((a, b) => {
-        const nowMs = Date.now();
         const aOverdue = a.sla_deadline
           ? new Date(a.sla_deadline).getTime() < nowMs
           : false;
@@ -132,7 +140,7 @@ export function PosAtendimentoDashboard({
         if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
         return new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime();
       }),
-    [items]
+    [items, nowMs]
   );
 
   const filtered = useMemo(
@@ -144,7 +152,7 @@ export function PosAtendimentoDashboard({
           return false;
         if (filterOverdue) {
           if (!item.sla_deadline) return false;
-          if (new Date(item.sla_deadline).getTime() >= Date.now()) return false;
+          if (new Date(item.sla_deadline).getTime() >= nowMs) return false;
         }
         if (filterSearch.trim()) {
           const needle = filterSearch.trim().toLowerCase();
@@ -153,7 +161,7 @@ export function PosAtendimentoDashboard({
         }
         return true;
       }),
-    [sorted, filterType, filterStatus, filterOverdue, filterSearch]
+    [sorted, filterType, filterStatus, filterOverdue, filterSearch, nowMs]
   );
 
   const handleAdvanceConfirm = useCallback(
@@ -169,6 +177,16 @@ export function PosAtendimentoDashboard({
         .eq("id", item.id);
 
       if (error) throw error;
+
+      setItems((prev) =>
+        newStatus === "publicado_finalizado"
+          ? prev.filter((i) => i.id !== item.id)
+          : prev.map((i) =>
+              i.id === item.id
+                ? { ...i, status: newStatus, updated_at: new Date().toISOString() }
+                : i,
+            ),
+      );
     },
     [advanceTarget]
   );
@@ -189,7 +207,7 @@ export function PosAtendimentoDashboard({
 
   function getSlaAlertClass(slaDeadline: string | null): string {
     if (!slaDeadline) return "";
-    const ms = new Date(slaDeadline).getTime() - Date.now();
+    const ms = new Date(slaDeadline).getTime() - nowMs;
     if (ms < 0) return "text-red-600 font-semibold";
     if (ms < 2 * 60 * 60 * 1000) return "text-yellow-600 font-semibold";
     return "text-green-600";
@@ -205,7 +223,6 @@ export function PosAtendimentoDashboard({
     "nao_iniciado",
     "pendente_envio",
     "enviado_radiologista",
-    "recebido_radiologista",
     "devolvido_radiologista",
     "recebido_corrigido",
     "revisado_liberado",
@@ -213,7 +230,6 @@ export function PosAtendimentoDashboard({
     "publicado_idoc",
     "disponivel_impressao",
     "enviado_impressao",
-    "recebido_laboratorio",
     "enviado_laboratorio_externo",
     "retornado_laboratorio",
   ];
