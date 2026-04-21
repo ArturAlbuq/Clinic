@@ -58,18 +58,10 @@ type ReceptionDashboardProps = {
 type StatusFilter = AttendanceOverallStatus | "todos";
 
 const PIPELINE_FLAGS_DEFAULT: PipelineFlags = {
-  com_laudo: false,
   com_cefalometria: false,
   com_impressao_fotografia: false,
   com_laboratorio_externo_escaneamento: false,
 };
-
-const LAUDO_EXAMS = new Set<ExamType>([
-  "periapical",
-  "interproximal",
-  "panoramica",
-  "tomografia",
-]);
 
 const FILTER_LABELS: Record<StatusFilter, string> = {
   todos: "Todos",
@@ -110,6 +102,7 @@ export function ReceptionDashboard({
   const [priority, setPriority] = useState<AttendancePriority>("normal");
   const [notes, setNotes] = useState("");
   const [pipelineFlags, setPipelineFlags] = useState<PipelineFlags>(PIPELINE_FLAGS_DEFAULT);
+  const [laudoPerExam, setLaudoPerExam] = useState<Partial<Record<ExamType, boolean>>>({});
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -173,12 +166,13 @@ export function ReceptionDashboard({
     });
 
     if (isRemoving) {
-      const nextSelected = selectedExams.filter((e) => e !== examType);
+      setLaudoPerExam((current) => {
+        const next = { ...current };
+        delete next[examType];
+        return next;
+      });
       setPipelineFlags((flags) => {
         const next = { ...flags };
-        if (LAUDO_EXAMS.has(examType) && !nextSelected.some((e) => LAUDO_EXAMS.has(e))) {
-          next.com_laudo = false;
-        }
         if (examType === "telerradiografia") next.com_cefalometria = false;
         if (examType === "fotografia") next.com_impressao_fotografia = false;
         if (examType === "escaneamento_intra_oral") next.com_laboratorio_externo_escaneamento = false;
@@ -189,6 +183,10 @@ export function ReceptionDashboard({
 
   function togglePipelineFlag(flag: keyof PipelineFlags, value: boolean) {
     setPipelineFlags((current) => ({ ...current, [flag]: value }));
+  }
+
+  function toggleLaudo(examType: ExamType, value: boolean) {
+    setLaudoPerExam((current) => ({ ...current, [examType]: value }));
   }
 
   function updateExamQuantity(examType: ExamType, rawValue: string) {
@@ -238,7 +236,7 @@ export function ReceptionDashboard({
         patientRegistrationNumber: patientRegistrationNumber.trim() || null,
         priority,
         selectedExams,
-        comLaudo: pipelineFlags.com_laudo,
+        comLaudoPerExam: laudoPerExam,
         comCefalometria: pipelineFlags.com_cefalometria,
         comImpressaoFotografia: pipelineFlags.com_impressao_fotografia,
         comLaboratorioExternoEscaneamento: pipelineFlags.com_laboratorio_externo_escaneamento,
@@ -269,6 +267,7 @@ export function ReceptionDashboard({
     setPriority("normal");
     setNotes("");
     setPipelineFlags(PIPELINE_FLAGS_DEFAULT);
+    setLaudoPerExam({});
     setFormSuccess("Atendimento enviado para os exames selecionados.");
     setIsSubmitting(false);
   }
@@ -347,6 +346,8 @@ export function ReceptionDashboard({
                 onUpdateExamQuantity={updateExamQuantity}
                 pipelineFlags={pipelineFlags}
                 onTogglePipelineFlag={togglePipelineFlag}
+                laudoPerExam={laudoPerExam}
+                onToggleLaudo={toggleLaudo}
               />
 
               <PriorityNotesSection
