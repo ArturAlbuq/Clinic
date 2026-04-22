@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { PipelineExamBadges } from "@/components/pipeline-exam-badges";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { formatDateTime } from "@/lib/date";
 import {
@@ -9,26 +10,16 @@ import {
   getPipelineStatusBadgeClass,
   PIPELINE_TYPE_BADGE_CLASS,
 } from "@/lib/pipeline-constants";
+import {
+  enrichPipelineItemsWithExams,
+  PIPELINE_ITEM_BASE_SELECT,
+  type PipelineItemBaseRow,
+  type PipelineItemRow,
+} from "@/lib/pipeline";
 import { AdvanceStatusModal } from "./advance-status-modal";
 import { HistoryModal } from "./history-modal";
 import type { PipelineStatus, PipelineType, Json } from "@/lib/database.types";
 import type { ProfileRecord } from "@/lib/database.types";
-
-type PipelineItemRow = {
-  id: string;
-  attendance_id: string;
-  queue_item_id: string | null;
-  pipeline_type: PipelineType;
-  status: PipelineStatus;
-  responsible_id: string | null;
-  sla_deadline: string | null;
-  metadata: Json;
-  opened_at: string;
-  updated_at: string;
-  attendances: { patient_name: string } | null;
-  queue_items: { exam_type: string } | null;
-  profiles: { full_name: string } | null;
-};
 
 type PipelineEvent = {
   id: string;
@@ -90,36 +81,53 @@ export function PosAtendimentoDashboard({
         (payload) => {
           if (payload.eventType === "DELETE") {
             setItems((prev) =>
-              prev.filter((i) => i.id !== String((payload.old as Record<string, unknown>).id))
+              prev.filter(
+                (item) =>
+                  item.id !==
+                  String((payload.old as Record<string, unknown>).id),
+              ),
             );
             return;
           }
+
           const raw = payload.new as Record<string, unknown>;
           supabase
             .from("pipeline_items")
-            .select(
-              `id, attendance_id, queue_item_id, pipeline_type, status, responsible_id, sla_deadline, metadata, opened_at, updated_at,
-               attendances ( patient_name ), queue_items ( exam_type ), profiles!pipeline_items_responsible_id_fkey ( full_name )`
-            )
+            .select(PIPELINE_ITEM_BASE_SELECT)
             .eq("id", String(raw.id))
+            .is("attendances.deleted_at", null)
             .neq("status", "publicado_finalizado")
             .single()
-            .then(({ data }) => {
+            .then(async ({ data }) => {
               if (!data) {
                 setItems((prev) =>
-                  prev.filter((i) => i.id !== String(raw.id))
+                  prev.filter((item) => item.id !== String(raw.id)),
                 );
                 return;
               }
+
+              const [hydratedItem] = await enrichPipelineItemsWithExams(
+                supabase,
+                [data as PipelineItemBaseRow],
+              );
+
+              if (!hydratedItem) {
+                return;
+              }
+
               setItems((prev) => {
-                const idx = prev.findIndex((i) => i.id === (data as PipelineItemRow).id);
-                if (idx === -1) return [...prev, data as PipelineItemRow];
+                const index = prev.findIndex((item) => item.id === hydratedItem.id);
+
+                if (index === -1) {
+                  return [...prev, hydratedItem];
+                }
+
                 const next = [...prev];
-                next[idx] = data as PipelineItemRow;
+                next[index] = hydratedItem;
                 return next;
               });
             });
-        }
+        },
       )
       .subscribe();
 
@@ -130,74 +138,102 @@ export function PosAtendimentoDashboard({
 
   const sorted = useMemo(
     () =>
-      [...items].sort((a, b) => {
-        const aOverdue = a.sla_deadline
-          ? new Date(a.sla_deadline).getTime() < nowMs
+      [...items].sort((left, right) => {
+        const leftOverdue = left.sla_deadline
+          ? new Date(left.sla_deadline).getTime() < nowMs
           : false;
-        const bOverdue = b.sla_deadline
-          ? new Date(b.sla_deadline).getTime() < nowMs
+        const rightOverdue = right.sla_deadline
+          ? new Date(right.sla_deadline).getTime() < nowMs
           : false;
-        if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-        return new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime();
+
+        if (leftOverdue !== rightOverdue) {
+          return leftOverdue ? -1 : 1;
+        }
+
+        return (
+          new Date(left.opened_at).getTime() - new Date(right.opened_at).getTime()
+        );
       }),
-    [items, nowMs]
+    [items, nowMs],
   );
 
   const filtered = useMemo(
     () =>
       sorted.filter((item) => {
-        if (filterType !== "todos" && item.pipeline_type !== filterType)
+        if (filterType !== "todos" && item.pipeline_type !== filterType) {
           return false;
-        if (filterStatus !== "todos" && item.status !== filterStatus)
-          return false;
-        if (filterOverdue) {
-          if (!item.sla_deadline) return false;
-          if (new Date(item.sla_deadline).getTime() >= nowMs) return false;
         }
+
+        if (filterStatus !== "todos" && item.status !== filterStatus) {
+          return false;
+        }
+
+        if (filterOverdue) {
+          if (!item.sla_deadline) {
+            return false;
+          }
+
+          if (new Date(item.sla_deadline).getTime() >= nowMs) {
+            return false;
+          }
+        }
+
         if (filterSearch.trim()) {
           const needle = filterSearch.trim().toLowerCase();
           const name = item.attendances?.patient_name?.toLowerCase() ?? "";
-          if (!name.includes(needle)) return false;
+
+          if (!name.includes(needle)) {
+            return false;
+          }
         }
+
         return true;
       }),
-    [sorted, filterType, filterStatus, filterOverdue, filterSearch, nowMs]
+    [sorted, filterType, filterStatus, filterOverdue, filterSearch, nowMs],
   );
 
   const handleAdvanceConfirm = useCallback(
     async (newStatus: PipelineStatus, notes: string) => {
       if (!advanceTarget) return;
+
       const supabase = getBrowserSupabaseClient();
       if (!supabase) return;
-      const item = advanceTarget.item;
 
+      const item = advanceTarget.item;
       const { error } = await supabase
         .from("pipeline_items")
         .update({ status: newStatus, notes: notes || null })
         .eq("id", item.id);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setItems((prev) =>
         newStatus === "publicado_finalizado"
-          ? prev.filter((i) => i.id !== item.id)
-          : prev.map((i) =>
-              i.id === item.id
-                ? { ...i, status: newStatus, updated_at: new Date().toISOString() }
-                : i,
+          ? prev.filter((current) => current.id !== item.id)
+          : prev.map((current) =>
+              current.id === item.id
+                ? {
+                    ...current,
+                    status: newStatus,
+                    updated_at: new Date().toISOString(),
+                  }
+                : current,
             ),
       );
     },
-    [advanceTarget]
+    [advanceTarget],
   );
 
   const openHistory = useCallback(async (item: PipelineItemRow) => {
     const supabase = getBrowserSupabaseClient();
     if (!supabase) return;
+
     const { data } = await supabase
       .from("pipeline_events")
       .select(
-        `id, previous_status, new_status, performed_by, occurred_at, notes, profiles:performed_by ( full_name )`
+        `id, previous_status, new_status, performed_by, occurred_at, notes, profiles:performed_by ( full_name )`,
       )
       .eq("pipeline_item_id", item.id)
       .order("occurred_at", { ascending: true });
@@ -205,11 +241,21 @@ export function PosAtendimentoDashboard({
     setHistoryTarget({ item, events: (data as PipelineEvent[]) ?? [] });
   }, []);
 
-  function getSlaAlertClass(slaDeadline: string | null): string {
-    if (!slaDeadline) return "";
+  function getSlaAlertClass(slaDeadline: string | null) {
+    if (!slaDeadline) {
+      return "";
+    }
+
     const ms = new Date(slaDeadline).getTime() - nowMs;
-    if (ms < 0) return "text-red-600 font-semibold";
-    if (ms < 2 * 60 * 60 * 1000) return "text-yellow-600 font-semibold";
+
+    if (ms < 0) {
+      return "text-red-600 font-semibold";
+    }
+
+    if (ms < 2 * 60 * 60 * 1000) {
+      return "text-yellow-600 font-semibold";
+    }
+
     return "text-green-600";
   }
 
@@ -246,26 +292,28 @@ export function PosAtendimentoDashboard({
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
         <select
           value={filterType}
-          onChange={(e) => setFilterType(e.target.value as FilterType)}
+          onChange={(event) => setFilterType(event.target.value as FilterType)}
           className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none"
         >
           <option value="todos">Todos os tipos</option>
-          {pipelineTypes.map((t) => (
-            <option key={t} value={t}>
-              {PIPELINE_TYPE_LABELS[t]}
+          {pipelineTypes.map((type) => (
+            <option key={type} value={type}>
+              {PIPELINE_TYPE_LABELS[type]}
             </option>
           ))}
         </select>
 
         <select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+          onChange={(event) =>
+            setFilterStatus(event.target.value as FilterStatus)
+          }
           className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none"
         >
           <option value="todos">Todos os status</option>
-          {pipelineStatuses.map((s) => (
-            <option key={s} value={s}>
-              {PIPELINE_STATUS_LABELS[s]}
+          {pipelineStatuses.map((status) => (
+            <option key={status} value={status}>
+              {PIPELINE_STATUS_LABELS[status]}
             </option>
           ))}
         </select>
@@ -274,7 +322,7 @@ export function PosAtendimentoDashboard({
           <input
             type="checkbox"
             checked={filterOverdue}
-            onChange={(e) => setFilterOverdue(e.target.checked)}
+            onChange={(event) => setFilterOverdue(event.target.checked)}
             className="h-4 w-4 rounded border-slate-300"
           />
           Apenas com atraso
@@ -283,7 +331,7 @@ export function PosAtendimentoDashboard({
         <input
           type="text"
           value={filterSearch}
-          onChange={(e) => setFilterSearch(e.target.value)}
+          onChange={(event) => setFilterSearch(event.target.value)}
           placeholder="Buscar paciente..."
           className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
         />
@@ -319,7 +367,7 @@ export function PosAtendimentoDashboard({
                     {item.attendances?.patient_name ?? "—"}
                   </td>
                   <td className="px-4 py-3 text-slate-600">
-                    {item.queue_items?.exam_type ?? "—"}
+                    <PipelineExamBadges exams={item.exams} />
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -375,9 +423,7 @@ export function PosAtendimentoDashboard({
 
       {advanceTarget && (
         <AdvanceStatusModal
-          patientName={
-            advanceTarget.item.attendances?.patient_name ?? "Paciente"
-          }
+          patientName={advanceTarget.item.attendances?.patient_name ?? "Paciente"}
           currentStatus={advanceTarget.item.status}
           pipelineType={advanceTarget.item.pipeline_type}
           metadata={
@@ -390,9 +436,7 @@ export function PosAtendimentoDashboard({
 
       {historyTarget && (
         <HistoryModal
-          patientName={
-            historyTarget.item.attendances?.patient_name ?? "Paciente"
-          }
+          patientName={historyTarget.item.attendances?.patient_name ?? "Paciente"}
           events={historyTarget.events}
           onClose={() => setHistoryTarget(null)}
         />
