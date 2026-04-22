@@ -1,4 +1,9 @@
 import { requireRole } from "@/lib/auth";
+import {
+  enrichPipelineItemsWithExams,
+  PIPELINE_ITEM_BASE_SELECT,
+  type PipelineItemBaseRow,
+} from "@/lib/pipeline";
 
 export const dynamic = "force-dynamic";
 
@@ -8,19 +13,21 @@ export default async function GerencialPage() {
   // Fetch first page of ALL pipeline_items (including finalizados)
   const { data: pipelineItems, count } = await supabase
     .from("pipeline_items")
-    .select(
-      `id, attendance_id, queue_item_id, pipeline_type, status, responsible_id, sla_deadline, metadata, opened_at, updated_at, finished_at,
-       attendances ( patient_name ), queue_items ( exam_type ), profiles:responsible_id ( full_name )`,
-      { count: "exact" }
-    )
+    .select(PIPELINE_ITEM_BASE_SELECT, { count: "exact" })
+    .is("attendances.deleted_at", null)
     .order("opened_at", { ascending: false })
     .range(0, 19);
+
+  const hydratedPipelineItems = await enrichPipelineItemsWithExams(
+    supabase,
+    (pipelineItems ?? []) as PipelineItemBaseRow[],
+  );
 
   const { GerencialDashboard } = await import("./gerencial-dashboard");
 
   return (
     <GerencialDashboard
-      initialItems={(pipelineItems ?? []) as never[]}
+      initialItems={hydratedPipelineItems}
       initialTotal={count ?? 0}
       currentProfile={profile}
     />

@@ -405,6 +405,39 @@ export type Database = {
           },
         ]
       }
+      pipeline_item_queue_items: {
+        Row: {
+          created_at: string
+          pipeline_item_id: string
+          queue_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          pipeline_item_id: string
+          queue_item_id: string
+        }
+        Update: {
+          created_at?: string
+          pipeline_item_id?: string
+          queue_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_item_queue_items_pipeline_item_id_fkey"
+            columns: ["pipeline_item_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_item_queue_items_queue_item_id_fkey"
+            columns: ["queue_item_id"]
+            isOneToOne: false
+            referencedRelation: "queue_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_room_access: {
         Row: {
           created_at: string
