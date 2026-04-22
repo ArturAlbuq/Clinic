@@ -192,7 +192,7 @@ declare
   v_sla_deadline timestamptz;
 begin
   for r in
-    select pi.id as pipeline_item_id, pi.attendance_id, pi.metadata, pi.created_by
+    select pi.id as pipeline_item_id, pi.attendance_id, pi.metadata, pi.created_by, pi.opened_at
     from public.pipeline_items pi
     where pi.pipeline_type = 'laudo'
       and pi.finished_at is null
@@ -228,7 +228,8 @@ begin
       end if;
 
       if v_business_days is not null then
-        v_sla_deadline := public.add_business_days(timezone('utc', now()), v_business_days);
+        -- Usa opened_at do item original como base do SLA, nao now()
+        v_sla_deadline := public.add_business_days(r.opened_at, v_business_days);
       end if;
 
       insert into public.pipeline_items (
@@ -237,6 +238,7 @@ begin
         pipeline_type,
         metadata,
         created_by,
+        opened_at,
         sla_deadline
       )
       values (
@@ -245,6 +247,7 @@ begin
         'laudo'::public.pipeline_type,
         jsonb_build_object('source_exam_type', extra_qi.exam_type),
         r.created_by,
+        r.opened_at,
         v_sla_deadline
       )
       returning id into new_pi_id;
