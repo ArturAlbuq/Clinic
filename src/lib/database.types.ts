@@ -1136,3 +1136,5 @@ export type PipelineFlags = {
   com_impressao_fotografia: boolean;
   com_laboratorio_externo_escaneamento: boolean;
 };
+
+export type PipelineItemRecord = Tables<"pipeline_items">;
