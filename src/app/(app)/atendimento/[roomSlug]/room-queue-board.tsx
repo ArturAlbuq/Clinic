@@ -7,6 +7,7 @@ import { DayFilterControls } from "@/components/day-filter-controls";
 import { EmptyState } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
 import { PwaInstallControl } from "@/components/pwa-install-control";
+import { PipelineToast } from "@/components/pipeline-toast";
 import { RepeatExamModal } from "@/components/repeat-exam-modal";
 import { RealtimeStatusBadge } from "@/components/realtime-status";
 import { StatusBadge } from "@/components/status-badge";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/constants";
 import type {
   AttendanceRecord,
+  PipelineItemRecord,
   QueueItemRecord,
   QueueItemWithAttendance,
 } from "@/lib/database.types";
@@ -86,6 +88,7 @@ export function RoomQueueBoard({
   const [repeatExamItemId, setRepeatExamItemId] = useState<string | null>(null);
   const [repeatExamLoading, setRepeatExamLoading] = useState(false);
   const [repeatExamError, setRepeatExamError] = useState("");
+  const [toastPipelineItems, setToastPipelineItems] = useState<PipelineItemRecord[]>([]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setNowMs(Date.now()));
@@ -197,6 +200,17 @@ export function RoomQueueBoard({
       );
     }
     setPendingItemId(null);
+
+    if (payload.queueItem.status === "finalizado" && payload.queueItem.attendance_id) {
+      const pipelineResponse = await fetch(
+        `/api/clinic/pipeline-items?attendanceIds=${payload.queueItem.attendance_id}`,
+        { credentials: "same-origin" },
+      );
+      if (pipelineResponse.ok) {
+        const pipelinePayload = (await pipelineResponse.json()) as { items?: PipelineItemRecord[] };
+        setToastPipelineItems(pipelinePayload.items ?? []);
+      }
+    }
   }
 
   async function submitReturnPending(queueItemId: string, nextIsPending: boolean) {
@@ -612,6 +626,13 @@ export function RoomQueueBoard({
           return Promise.resolve();
         }}
       />
+
+      {toastPipelineItems.length > 0 && (
+        <PipelineToast
+          items={toastPipelineItems}
+          onClose={() => setToastPipelineItems([])}
+        />
+      )}
 
       {returnPendingItems.length ? (
         <section className="app-panel rounded-[30px] px-6 py-6">
