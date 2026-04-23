@@ -48,6 +48,34 @@ type HistoryTarget = {
   events: PipelineEvent[];
 };
 
+function parseLocalDateInput(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function getLocalDayBounds(value: string) {
+  const start = parseLocalDateInput(value);
+
+  if (!start) {
+    return null;
+  }
+
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+
+  return {
+    startMs: start.getTime(),
+    endMs: end.getTime(),
+  };
+}
+
 export function PosAtendimentoDashboard({
   initialItems,
 }: Props) {
@@ -56,9 +84,25 @@ export function PosAtendimentoDashboard({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("todos");
   const [filterOverdue, setFilterOverdue] = useState(false);
   const [filterSearch, setFilterSearch] = useState("");
+  const [filterOpenedDay, setFilterOpenedDay] = useState("");
+  const [filterOpenedFrom, setFilterOpenedFrom] = useState("");
+  const [filterOpenedTo, setFilterOpenedTo] = useState("");
   const [advanceTarget, setAdvanceTarget] = useState<AdvanceTarget | null>(null);
   const [historyTarget, setHistoryTarget] = useState<HistoryTarget | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const dayBounds = useMemo(
+    () => getLocalDayBounds(filterOpenedDay),
+    [filterOpenedDay],
+  );
+  const fromBounds = useMemo(
+    () => getLocalDayBounds(filterOpenedFrom),
+    [filterOpenedFrom],
+  );
+  const toBounds = useMemo(
+    () => getLocalDayBounds(filterOpenedTo),
+    [filterOpenedTo],
+  );
+  const isDayFilterActive = Boolean(dayBounds);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -160,6 +204,8 @@ export function PosAtendimentoDashboard({
   const filtered = useMemo(
     () =>
       sorted.filter((item) => {
+        const openedAtMs = new Date(item.opened_at).getTime();
+
         if (filterType !== "todos" && item.pipeline_type !== filterType) {
           return false;
         }
@@ -187,9 +233,36 @@ export function PosAtendimentoDashboard({
           }
         }
 
+        if (dayBounds) {
+          if (
+            openedAtMs < dayBounds.startMs ||
+            openedAtMs > dayBounds.endMs
+          ) {
+            return false;
+          }
+        } else {
+          if (fromBounds && openedAtMs < fromBounds.startMs) {
+            return false;
+          }
+
+          if (toBounds && openedAtMs > toBounds.endMs) {
+            return false;
+          }
+        }
+
         return true;
       }),
-    [sorted, filterType, filterStatus, filterOverdue, filterSearch, nowMs],
+    [
+      sorted,
+      filterType,
+      filterStatus,
+      filterOverdue,
+      filterSearch,
+      nowMs,
+      dayBounds,
+      fromBounds,
+      toBounds,
+    ],
   );
 
   const handleAdvanceConfirm = useCallback(
@@ -289,7 +362,7 @@ export function PosAtendimentoDashboard({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 shadow-sm">
         <select
           value={filterType}
           onChange={(event) => setFilterType(event.target.value as FilterType)}
@@ -336,9 +409,61 @@ export function PosAtendimentoDashboard({
           className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
         />
 
-        <span className="ml-auto text-xs text-slate-400">
-          {filtered.length} esteira{filtered.length !== 1 ? "s" : ""}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span className="px-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
+            Dia
+          </span>
+          <input
+            type="date"
+            value={filterOpenedDay}
+            onChange={(event) => setFilterOpenedDay(event.target.value)}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none"
+            title="Filtrar pela data de abertura da esteira"
+            aria-label="Filtrar pela data de abertura da esteira"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="px-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
+            De
+          </span>
+          <input
+            type="date"
+            value={filterOpenedFrom}
+            onChange={(event) => setFilterOpenedFrom(event.target.value)}
+            disabled={isDayFilterActive}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none"
+            title="Filtrar a partir da abertura da esteira"
+            aria-label="Filtrar a partir da abertura da esteira"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="px-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
+            Ate
+          </span>
+          <input
+            type="date"
+            value={filterOpenedTo}
+            onChange={(event) => setFilterOpenedTo(event.target.value)}
+            disabled={isDayFilterActive}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none"
+            title="Filtrar ate a abertura da esteira"
+            aria-label="Filtrar ate a abertura da esteira"
+          />
+        </div>
+
+        <div className="ml-auto flex min-h-[42px] items-center gap-3">
+          {isDayFilterActive ? (
+            <span className="text-xs font-medium text-teal-700">
+              Dia ativo: De/Ate ignorados.
+            </span>
+          ) : null}
+
+          <span className="text-xs text-slate-400">
+            {filtered.length} esteira{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
