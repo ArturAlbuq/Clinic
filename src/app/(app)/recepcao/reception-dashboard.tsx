@@ -28,6 +28,7 @@ import type {
   ExamRoomRecord,
   ExamType,
   PipelineFlags,
+  PipelineItemRecord,
   QueueItemRecord,
 } from "@/lib/database.types";
 import {
@@ -50,6 +51,7 @@ import {
 type ReceptionDashboardProps = {
   initialAttendances: AttendanceRecord[];
   initialItems: QueueItemRecord[];
+  initialPipelineItemsByAttendanceId: Map<string, PipelineItemRecord[]>;
   range: QueueDateRange;
   rooms: ExamRoomRecord[];
   selectedDate: string;
@@ -75,6 +77,7 @@ const FILTER_LABELS: Record<StatusFilter, string> = {
 export function ReceptionDashboard({
   initialAttendances,
   initialItems,
+  initialPipelineItemsByAttendanceId,
   range,
   rooms,
   selectedDate,
@@ -108,6 +111,8 @@ export function ReceptionDashboard({
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const pipelineItemsByAttendanceId = initialPipelineItemsByAttendanceId;
 
   const groupedAttendances = useMemo(() => {
     const grouped = groupAttendancesWithQueueItems(attendances, queueItems);
