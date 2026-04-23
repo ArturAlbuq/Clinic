@@ -1,18 +1,21 @@
 import { PriorityBadge } from "@/components/priority-badge";
 import { StatusBadge } from "@/components/status-badge";
+import { PipelineChips } from "@/components/pipeline-chips";
 import { formatClock } from "@/lib/date";
 import { ATTENDANCE_STATUS_LABELS } from "@/lib/constants";
 import { getAttendanceOverallStatus } from "@/lib/queue";
-import type { AttendanceOverallStatus, AttendanceWithQueueItems } from "@/lib/database.types";
+import type { AttendanceOverallStatus, AttendanceWithQueueItems, PipelineItemRecord } from "@/lib/database.types";
 
 type AttendanceRowCompactProps = {
   attendance: AttendanceWithQueueItems;
   onExpandClick: () => void;
+  pipelineItems: PipelineItemRecord[];
 };
 
 export function AttendanceRowCompact({
   attendance,
   onExpandClick,
+  pipelineItems,
 }: AttendanceRowCompactProps) {
   const completedSteps = attendance.queueItems.filter(
     (item) => item.status === "finalizado",
@@ -58,6 +61,12 @@ export function AttendanceRowCompact({
           <span className="text-slate-600">
             {completedSteps} de {attendance.queueItems.length} exames
           </span>
+          {pipelineItems.length > 0 && (
+            <>
+              <span className="text-slate-300">•</span>
+              <PipelineChips items={pipelineItems} />
+            </>
+          )}
           <span className="ml-auto text-slate-600">⋯</span>
         </div>
       </div>

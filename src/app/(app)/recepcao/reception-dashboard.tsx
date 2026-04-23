@@ -475,6 +475,7 @@ export function ReceptionDashboard({
                     onExpandClick={() =>
                       setExpandedId(isExpanded ? null : attendance.id)
                     }
+                    pipelineItems={pipelineItemsByAttendanceId.get(attendance.id) ?? []}
                   />
                   {isExpanded && (
                   <AttendanceRowExpanded
