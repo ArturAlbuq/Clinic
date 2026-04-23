@@ -7,11 +7,11 @@
 --    - Laudo: unicidade por (queue_item_id, pipeline_type) aberto — um por exame
 drop index if exists public.pipeline_items_open_unique_idx;
 
-create unique index pipeline_items_open_unique_non_laudo_idx
+create unique index if not exists pipeline_items_open_unique_non_laudo_idx
   on public.pipeline_items (attendance_id, pipeline_type)
   where finished_at is null and pipeline_type != 'laudo';
 
-create unique index pipeline_items_open_unique_laudo_idx
+create unique index if not exists pipeline_items_open_unique_laudo_idx
   on public.pipeline_items (queue_item_id, pipeline_type)
   where finished_at is null and pipeline_type = 'laudo';
 
