@@ -20,7 +20,7 @@ type RecepcaoPageProps = {
 };
 
 export default async function RecepcaoPage({ searchParams }: RecepcaoPageProps) {
-  const { supabase } = await requireRole(["recepcao", "admin"]);
+  const { supabase, profile } = await requireRole(["recepcao", "admin"]);
   const params = await searchParams;
 
   if (!params.date) {
@@ -60,6 +60,7 @@ export default async function RecepcaoPage({ searchParams }: RecepcaoPageProps) 
       range={range}
       rooms={rooms}
       selectedDate={formatDateInputValue(selectedDate)}
+      currentRole={profile.role}
     />
   );
 }
