@@ -188,7 +188,7 @@ begin
       ),
       coalesce(r.finished_by, r.started_by, r.called_by, r.attendance_created_by),
       v_opened_at,
-      null
+      null -- sem SLA para itens retroativos
     )
     returning id into new_pi_id;
 
