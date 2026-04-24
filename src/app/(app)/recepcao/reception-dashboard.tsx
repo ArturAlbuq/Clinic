@@ -55,7 +55,6 @@ type ReceptionDashboardProps = {
   range: QueueDateRange;
   rooms: ExamRoomRecord[];
   selectedDate: string;
-  currentRole: string;
 };
 
 type StatusFilter = AttendanceOverallStatus | "todos";
@@ -82,7 +81,6 @@ export function ReceptionDashboard({
   range,
   rooms,
   selectedDate,
-  currentRole,
 }: ReceptionDashboardProps) {
   const {
     attendances,
@@ -492,7 +490,6 @@ export function ReceptionDashboard({
                           updatedQueueItems,
                         );
                       }}
-                      currentRole={currentRole}
                     />
                   )}
                 </div>

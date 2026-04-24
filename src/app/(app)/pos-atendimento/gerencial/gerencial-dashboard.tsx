@@ -17,11 +17,10 @@ import {
   type PipelineItemBaseRow,
   type PipelineItemRow,
 } from "@/lib/pipeline";
-import type { Database, ExamType } from "@/lib/database.types";
+import type { Database } from "@/lib/database.types";
 import { ReopenModal } from "./reopen-modal";
 import { CorrectStatusModal } from "./correct-status-modal";
 import { AuditModal } from "./audit-modal";
-import { CorrectFlagsModal } from "./correct-flags-modal";
 
 type PipelineStatus = Database["public"]["Enums"]["pipeline_status"];
 type PipelineType = Database["public"]["Enums"]["pipeline_type"];
@@ -94,8 +93,6 @@ export function GerencialDashboard({
   const [correctTarget, setCorrectTarget] = useState<PipelineItemRow | null>(
     null,
   );
-  const [correctFlagsTarget, setCorrectFlagsTarget] =
-    useState<PipelineItemRow | null>(null);
   const [auditTarget, setAuditTarget] = useState<{
     item: PipelineItemRow;
     events: AuditEvent[];
@@ -345,37 +342,6 @@ export function GerencialDashboard({
       }
     },
     [],
-  );
-
-  const handleCorrectFlags = useCallback(
-    async (flags: {
-      comCefalometria: boolean;
-      comImpressaoFotografia: boolean;
-      comLaboratorioExternoEscaneamento: boolean;
-      comLaudoPerExam: Partial<Record<ExamType, boolean>>;
-      reason: string;
-    }) => {
-      if (!correctFlagsTarget) return;
-
-      const response = await fetch(
-        `/api/clinic/attendances/${correctFlagsTarget.attendance_id}/correct-flags`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify(flags),
-        },
-      );
-
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? "Erro ao corrigir marcações.");
-      }
-
-      await fetchPage(page);
-      await fetchSummary();
-    },
-    [correctFlagsTarget, fetchPage, fetchSummary, page],
   );
 
   const openAudit = useCallback(async (item: PipelineItemRow) => {
@@ -694,14 +660,6 @@ export function GerencialDashboard({
                           Corrigir
                         </button>
                       )}
-                      {(isAdmin || currentProfile.role === "gerencia") && (
-                        <button
-                          onClick={() => setCorrectFlagsTarget(item)}
-                          className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-200"
-                        >
-                          Flags
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -779,37 +737,6 @@ export function GerencialDashboard({
           patientName={auditTarget.item.attendances?.patient_name ?? "Paciente"}
           events={auditTarget.events}
           onClose={() => setAuditTarget(null)}
-        />
-      )}
-
-      {correctFlagsTarget && (
-        <CorrectFlagsModal
-          patientName={
-            correctFlagsTarget.attendances?.patient_name ?? "Paciente"
-          }
-          pipelineType={correctFlagsTarget.pipeline_type}
-          currentFlags={{
-            comCefalometria: Boolean(
-              (correctFlagsTarget.metadata as Record<string, unknown>)
-                ?.source_exam_type === "telerradiografia",
-            ),
-            comImpressaoFotografia: Boolean(
-              (correctFlagsTarget.metadata as Record<string, unknown>)
-                ?.com_impressao,
-            ),
-            comLaboratorioExternoEscaneamento: Boolean(
-              (correctFlagsTarget.metadata as Record<string, unknown>)
-                ?.laboratorio_externo,
-            ),
-            comLaudoPerExam:
-              correctFlagsTarget.pipeline_type === "laudo"
-                ? Object.fromEntries(
-                    correctFlagsTarget.exams.map((e) => [e.exam_type, true]),
-                  )
-                : {},
-          }}
-          onConfirm={handleCorrectFlags}
-          onClose={() => setCorrectFlagsTarget(null)}
         />
       )}
     </div>

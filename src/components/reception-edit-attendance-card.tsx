@@ -18,7 +18,6 @@ type ReceptionEditAttendanceCardProps = {
   attendance: AttendanceWithQueueItems;
   isToday: boolean;
   rooms: ExamRoomRecord[];
-  currentRole?: string;
   onAttendanceSaved: (
     updatedAttendance: AttendanceRecord,
     updatedQueueItems: QueueItemRecord[],
@@ -35,23 +34,14 @@ function buildEditableExamQuantities(attendance: AttendanceWithQueueItems) {
   );
 }
 
-function buildLaudoPerExam(queueItems: AttendanceWithQueueItems["queueItems"]) {
-  return queueItems.reduce<Partial<Record<ExamType, boolean>>>((acc, item) => {
-    if (item.com_laudo) acc[item.exam_type] = true;
-    return acc;
-  }, {});
-}
-
 export function ReceptionEditAttendanceCard({
   attendance,
   isToday,
   rooms,
-  currentRole,
   onAttendanceSaved,
 }: ReceptionEditAttendanceCardProps) {
   const canEdit =
     isToday && canReceptionEditAttendance(attendance, attendance.queueItems);
-  const canEditFlags = currentRole === "admin" || currentRole === "gerencia";
   const attendancePipelineFlags: PipelineFlags = {
     com_cefalometria: attendance.com_cefalometria,
     com_impressao_fotografia: attendance.com_impressao_fotografia,
@@ -59,7 +49,13 @@ export function ReceptionEditAttendanceCard({
       attendance.com_laboratorio_externo_escaneamento,
   };
 
-  const laudoPerExamReadOnly = buildLaudoPerExam(attendance.queueItems);
+  const laudoPerExamReadOnly = attendance.queueItems.reduce<Partial<Record<ExamType, boolean>>>(
+    (acc, item) => {
+      if (item.com_laudo) acc[item.exam_type] = true;
+      return acc;
+    },
+    {},
+  );
   function noopTogglePipelineFlag(
     _flag: keyof PipelineFlags,
     _value: boolean,
@@ -84,16 +80,6 @@ export function ReceptionEditAttendanceCard({
     useState<ExamType[]>(initialSelectedExams);
   const [examQuantities, setExamQuantities] =
     useState<Partial<Record<ExamType, number>>>(initialExamQuantities);
-  const [pipelineFlags, setPipelineFlags] = useState<PipelineFlags>({
-    com_cefalometria: attendance.com_cefalometria,
-    com_impressao_fotografia: attendance.com_impressao_fotografia,
-    com_laboratorio_externo_escaneamento:
-      attendance.com_laboratorio_externo_escaneamento,
-  });
-  const [laudoPerExam, setLaudoPerExam] = useState<Partial<Record<ExamType, boolean>>>(
-    () => buildLaudoPerExam(attendance.queueItems),
-  );
-  const [flagsReason, setFlagsReason] = useState("");
 
   useEffect(() => {
     if (isEditing) {
@@ -106,22 +92,10 @@ export function ReceptionEditAttendanceCard({
     setSelectedExams(initialSelectedExams);
     setExamQuantities(initialExamQuantities);
     setMutationError("");
-    setPipelineFlags({
-      com_cefalometria: attendance.com_cefalometria,
-      com_impressao_fotografia: attendance.com_impressao_fotografia,
-      com_laboratorio_externo_escaneamento:
-        attendance.com_laboratorio_externo_escaneamento,
-    });
-    setLaudoPerExam(buildLaudoPerExam(attendance.queueItems));
-    setFlagsReason("");
   }, [
-    attendance.com_cefalometria,
-    attendance.com_impressao_fotografia,
-    attendance.com_laboratorio_externo_escaneamento,
     attendance.notes,
     attendance.patient_name,
     attendance.patient_registration_number,
-    attendance.queueItems,
     initialExamQuantities,
     initialSelectedExams,
     isEditing,
@@ -168,28 +142,6 @@ export function ReceptionEditAttendanceCard({
     setSelectedExams(initialSelectedExams);
     setExamQuantities(initialExamQuantities);
     setMutationError("");
-    setPipelineFlags({
-      com_cefalometria: attendance.com_cefalometria,
-      com_impressao_fotografia: attendance.com_impressao_fotografia,
-      com_laboratorio_externo_escaneamento:
-        attendance.com_laboratorio_externo_escaneamento,
-    });
-    setLaudoPerExam(buildLaudoPerExam(attendance.queueItems));
-    setFlagsReason("");
-  }
-
-  function hasFlagsChanged(): boolean {
-    if (pipelineFlags.com_cefalometria !== attendance.com_cefalometria) return true;
-    if (pipelineFlags.com_impressao_fotografia !== attendance.com_impressao_fotografia) return true;
-    if (
-      pipelineFlags.com_laboratorio_externo_escaneamento !==
-      attendance.com_laboratorio_externo_escaneamento
-    )
-      return true;
-    for (const item of attendance.queueItems) {
-      if ((laudoPerExam[item.exam_type] ?? false) !== item.com_laudo) return true;
-    }
-    return false;
   }
 
   async function submitEdit() {
@@ -207,13 +159,6 @@ export function ReceptionEditAttendanceCard({
 
     if (!selectedExams.length) {
       setMutationError("Selecione ao menos um exame.");
-      return;
-    }
-
-    if (canEditFlags && hasFlagsChanged() && flagsReason.trim().length < 3) {
-      setMutationError(
-        "Informe o motivo da correção das marcações (mínimo 3 caracteres).",
-      );
       return;
     }
 
@@ -254,40 +199,6 @@ export function ReceptionEditAttendanceCard({
       return;
     }
 
-    if (canEditFlags && hasFlagsChanged()) {
-      const flagsResponse = await fetch(
-        `/api/clinic/attendances/${attendance.id}/correct-flags`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            comCefalometria: pipelineFlags.com_cefalometria,
-            comImpressaoFotografia: pipelineFlags.com_impressao_fotografia,
-            comLaboratorioExternoEscaneamento:
-              pipelineFlags.com_laboratorio_externo_escaneamento,
-            comLaudoPerExam: laudoPerExam,
-            reason: flagsReason.trim(),
-          }),
-        },
-      );
-
-      if (!flagsResponse.ok) {
-        const flagsPayload =
-          (await readJsonResponse<{ error?: string }>(flagsResponse)) ?? {};
-        setMutationError(
-          `Cadastro salvo, mas erro ao corrigir marcações: ${flagsPayload.error ?? "tente novamente."}`,
-        );
-        onAttendanceSaved(
-          payload.attendance as AttendanceRecord,
-          (payload.queueItems ?? []) as QueueItemRecord[],
-        );
-        setIsEditing(false);
-        setIsSaving(false);
-        return;
-      }
-    }
-
     onAttendanceSaved(
       payload.attendance as AttendanceRecord,
       (payload.queueItems ?? []) as QueueItemRecord[],
@@ -296,7 +207,7 @@ export function ReceptionEditAttendanceCard({
     setIsSaving(false);
   }
 
-  if (!canEdit && !canEditFlags) {
+  if (!canEdit) {
     return null;
   }
 
@@ -304,21 +215,13 @@ export function ReceptionEditAttendanceCard({
     <div className="rounded-[18px] border border-cyan-200 bg-cyan-50/70 px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          {canEdit ? (
-            <>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
-                Edicao liberada
-              </p>
-              <p className="mt-2 text-sm text-slate-700">
-                Enquanto nenhum exame foi chamado, a recepcao pode corrigir nome,
-                cadastro, observacao e exames deste atendimento.
-              </p>
-            </>
-          ) : (
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-              Correção de marcações (admin/gerência)
-            </p>
-          )}
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
+            Edicao liberada
+          </p>
+          <p className="mt-2 text-sm text-slate-700">
+            Enquanto nenhum exame foi chamado, a recepcao pode corrigir nome,
+            cadastro, observacao e exames deste atendimento.
+          </p>
         </div>
         {!isEditing ? (
           <button
@@ -368,38 +271,12 @@ export function ReceptionEditAttendanceCard({
             examQuantities={examQuantities}
             onToggleExam={toggleExam}
             onUpdateExamQuantity={updateExamQuantity}
-            pipelineFlags={canEditFlags ? pipelineFlags : attendancePipelineFlags}
-            onTogglePipelineFlag={
-              canEditFlags
-                ? (flag, value) =>
-                    setPipelineFlags((prev) => ({ ...prev, [flag]: value }))
-                : noopTogglePipelineFlag
-            }
-            laudoPerExam={canEditFlags ? laudoPerExam : laudoPerExamReadOnly}
-            onToggleLaudo={
-              canEditFlags
-                ? (examType, value) =>
-                    setLaudoPerExam((prev) => ({ ...prev, [examType]: value }))
-                : () => {}
-            }
-            pipelineFlagsReadOnly={!canEditFlags}
+            pipelineFlags={attendancePipelineFlags}
+            onTogglePipelineFlag={noopTogglePipelineFlag}
+            laudoPerExam={laudoPerExamReadOnly}
+            onToggleLaudo={() => {}}
+            pipelineFlagsReadOnly
           />
-
-          {canEditFlags && hasFlagsChanged() && (
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">
-                Motivo da correção das marcações{" "}
-                <span className="text-rose-500">*</span>
-              </span>
-              <input
-                type="text"
-                value={flagsReason}
-                onChange={(e) => setFlagsReason(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-                placeholder="Ex.: marcado incorretamente no cadastro"
-              />
-            </label>
-          )}
 
           <div className="flex flex-wrap gap-3">
             <button

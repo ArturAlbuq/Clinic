@@ -14,7 +14,6 @@ type AttendanceRowExpandedProps = {
   attendance: AttendanceWithQueueItems;
   isToday: boolean;
   rooms: ExamRoomRecord[];
-  currentRole?: string;
   onAttendanceSaved: (
     updatedAttendance: AttendanceRecord,
     updatedQueueItems: QueueItemRecord[],
@@ -30,7 +29,6 @@ export function AttendanceRowExpanded({
   attendance,
   isToday,
   rooms,
-  currentRole,
   onAttendanceSaved,
   onQueueItemMutation,
 }: AttendanceRowExpandedProps) {
@@ -70,7 +68,6 @@ export function AttendanceRowExpanded({
         attendance={attendance}
         isToday={isToday}
         rooms={rooms}
-        currentRole={currentRole}
         onAttendanceSaved={onAttendanceSaved}
       />
 
