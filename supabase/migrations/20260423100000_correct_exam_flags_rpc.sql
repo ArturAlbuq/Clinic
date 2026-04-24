@@ -23,8 +23,6 @@ declare
   old_com_laboratorio_externo_escaneamento boolean;
 
   -- helpers
-  v_exam_type public.exam_type;
-  v_old_laudo boolean;
   v_new_laudo boolean;
   v_queue_item_id uuid;
   v_pipeline_item_id uuid;
@@ -212,23 +210,15 @@ begin
 
   -- 4. Fotografia / com_impressao
   if p_com_impressao_fotografia is distinct from old_com_impressao_fotografia then
-    -- Atualiza metadata do pipeline_item de fotografia aberto
-    update public.pipeline_items
-    set metadata = metadata
-      || jsonb_build_object('com_impressao', p_com_impressao_fotografia)
-      || jsonb_build_object('flag_correction', true),
-      notes = p_reason
-    where attendance_id = p_attendance_id
-      and pipeline_type = 'fotografia'
-      and finished_at is null;
-
-    -- Se desmarcou e havia pipeline_item: fecha
+    -- Se desmarcou: fecha o pipeline_item em um unico UPDATE (evita duplo evento de auditoria)
     if not p_com_impressao_fotografia then
       update public.pipeline_items
       set
         status   = 'publicado_finalizado',
         notes    = p_reason,
-        metadata = metadata || jsonb_build_object('flag_correction', true)
+        metadata = metadata
+          || jsonb_build_object('com_impressao', false)
+          || jsonb_build_object('flag_correction', true)
       where attendance_id = p_attendance_id
         and pipeline_type = 'fotografia'
         and finished_at is null;
@@ -264,28 +254,32 @@ begin
             v_performed_by
           );
         end if;
+      else
+        -- Ja existe pipeline_item aberto: apenas atualiza o metadata
+        update public.pipeline_items
+        set
+          metadata = metadata
+            || jsonb_build_object('com_impressao', true)
+            || jsonb_build_object('flag_correction', true),
+          notes = p_reason
+        where attendance_id = p_attendance_id
+          and pipeline_type = 'fotografia'
+          and finished_at is null;
       end if;
     end if;
   end if;
 
   -- 5. Escaneamento / laboratorio_externo
   if p_com_laboratorio_externo_escaneamento is distinct from old_com_laboratorio_externo_escaneamento then
-    -- Atualiza metadata do pipeline_item de escaneamento aberto
-    update public.pipeline_items
-    set metadata = metadata
-      || jsonb_build_object('laboratorio_externo', p_com_laboratorio_externo_escaneamento)
-      || jsonb_build_object('flag_correction', true),
-      notes = p_reason
-    where attendance_id = p_attendance_id
-      and pipeline_type = 'escaneamento'
-      and finished_at is null;
-
+    -- Se desmarcou: fecha o pipeline_item em um unico UPDATE (evita duplo evento de auditoria)
     if not p_com_laboratorio_externo_escaneamento then
       update public.pipeline_items
       set
         status   = 'publicado_finalizado',
         notes    = p_reason,
-        metadata = metadata || jsonb_build_object('flag_correction', true)
+        metadata = metadata
+          || jsonb_build_object('laboratorio_externo', false)
+          || jsonb_build_object('flag_correction', true)
       where attendance_id = p_attendance_id
         and pipeline_type = 'escaneamento'
         and finished_at is null;
@@ -320,6 +314,17 @@ begin
             v_performed_by
           );
         end if;
+      else
+        -- Ja existe pipeline_item aberto: apenas atualiza o metadata
+        update public.pipeline_items
+        set
+          metadata = metadata
+            || jsonb_build_object('laboratorio_externo', true)
+            || jsonb_build_object('flag_correction', true),
+          notes = p_reason
+        where attendance_id = p_attendance_id
+          and pipeline_type = 'escaneamento'
+          and finished_at is null;
       end if;
     end if;
   end if;
