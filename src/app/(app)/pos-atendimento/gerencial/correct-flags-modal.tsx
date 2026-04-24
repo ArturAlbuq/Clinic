@@ -8,7 +8,6 @@ type ExamType = Database["public"]["Enums"]["exam_type"];
 type PipelineType = Database["public"]["Enums"]["pipeline_type"];
 
 type CorrectFlagsModalProps = {
-  attendanceId: string;
   patientName: string;
   pipelineType: PipelineType;
   currentFlags: {
@@ -97,17 +96,23 @@ export function CorrectFlagsModal({
           {pipelineType === "laudo" && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-700">Laudos por exame:</p>
-              {Object.keys(comLaudoPerExam).map((exam) => (
-                <label key={exam} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 hover:border-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={comLaudoPerExam[exam as ExamType] ?? false}
-                    onChange={(e) => handleFlagChange(exam as ExamType, e.target.checked)}
-                    className="rounded border-slate-300 focus:outline-none"
-                  />
-                  {EXAM_LABELS[exam as ExamType]}
-                </label>
-              ))}
+              {(Object.keys(comLaudoPerExam) as ExamType[]).filter((e) => e in EXAM_LABELS).length === 0 ? (
+                <p className="text-sm text-slate-400">Nenhum exame registrado.</p>
+              ) : (
+                (Object.keys(comLaudoPerExam) as ExamType[])
+                  .filter((e) => e in EXAM_LABELS)
+                  .map((exam) => (
+                    <label key={exam} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 hover:border-slate-400">
+                      <input
+                        type="checkbox"
+                        checked={comLaudoPerExam[exam] ?? false}
+                        onChange={(e) => handleFlagChange(exam, e.target.checked)}
+                        className="rounded border-slate-300 focus:outline-none"
+                      />
+                      {EXAM_LABELS[exam]}
+                    </label>
+                  ))
+              )}
             </div>
           )}
           {pipelineType === "cefalometria" && (
