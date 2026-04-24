@@ -54,8 +54,11 @@ export function getNextStatuses(
   currentStatus: PipelineStatus,
   metadata: Record<string, unknown>
 ): PipelineStatus[] {
-  if (type === "laudo" || type === "cefalometria") {
-    return getLaudoNextStatuses(currentStatus);
+  if (type === "laudo") {
+    return getLaudoNextStatuses(currentStatus, metadata);
+  }
+  if (type === "cefalometria") {
+    return getCefalometriaNextStatuses(currentStatus);
   }
   if (type === "fotografia") {
     return getFotografiaNextStatuses(currentStatus, metadata);
@@ -66,9 +69,36 @@ export function getNextStatuses(
   return [];
 }
 
-function getLaudoNextStatuses(current: PipelineStatus): PipelineStatus[] {
+function getLaudoNextStatuses(
+  current: PipelineStatus,
+  metadata: Record<string, unknown>
+): PipelineStatus[] {
+  const comLaudo = Boolean(metadata.com_laudo);
+
+  if (!comLaudo) {
+    const map: Partial<Record<PipelineStatus, PipelineStatus[]>> = {
+      nao_iniciado: ["publicado_idoc"],
+      publicado_idoc: ["publicado_finalizado"],
+    };
+    return map[current] ?? [];
+  }
+
   const map: Partial<Record<PipelineStatus, PipelineStatus[]>> = {
-    nao_iniciado: ["pendente_envio"],
+    nao_iniciado: ["publicado_idoc"],
+    publicado_idoc: ["pendente_envio"],
+    pendente_envio: ["enviado_radiologista"],
+    enviado_radiologista: ["revisado_liberado", "devolvido_radiologista"],
+    devolvido_radiologista: ["recebido_corrigido"],
+    recebido_corrigido: ["revisado_liberado"],
+    revisado_liberado: ["publicado_finalizado"],
+  };
+  return map[current] ?? [];
+}
+
+function getCefalometriaNextStatuses(current: PipelineStatus): PipelineStatus[] {
+  const map: Partial<Record<PipelineStatus, PipelineStatus[]>> = {
+    nao_iniciado: ["publicado_idoc"],
+    publicado_idoc: ["pendente_envio"],
     pendente_envio: ["enviado_radiologista"],
     enviado_radiologista: ["revisado_liberado", "devolvido_radiologista"],
     devolvido_radiologista: ["recebido_corrigido"],
@@ -99,7 +129,8 @@ function getEscaneamentoNextStatuses(
 ): PipelineStatus[] {
   const laboratorioExterno = Boolean(metadata.laboratorio_externo);
   const map: Partial<Record<PipelineStatus, PipelineStatus[]>> = {
-    nao_iniciado: ["em_ajuste"],
+    nao_iniciado: ["publicado_idoc"],
+    publicado_idoc: ["em_ajuste"],
     em_ajuste: laboratorioExterno
       ? ["enviado_laboratorio_externo"]
       : ["publicado_finalizado"],
@@ -113,6 +144,7 @@ export function getStatusesForType(type: PipelineType): PipelineStatus[] {
   const map: Record<PipelineType, PipelineStatus[]> = {
     laudo: [
       "nao_iniciado",
+      "publicado_idoc",
       "pendente_envio",
       "enviado_radiologista",
       "devolvido_radiologista",
@@ -122,6 +154,7 @@ export function getStatusesForType(type: PipelineType): PipelineStatus[] {
     ],
     cefalometria: [
       "nao_iniciado",
+      "publicado_idoc",
       "pendente_envio",
       "enviado_radiologista",
       "devolvido_radiologista",
@@ -139,6 +172,7 @@ export function getStatusesForType(type: PipelineType): PipelineStatus[] {
     ],
     escaneamento: [
       "nao_iniciado",
+      "publicado_idoc",
       "em_ajuste",
       "enviado_laboratorio_externo",
       "retornado_laboratorio",
