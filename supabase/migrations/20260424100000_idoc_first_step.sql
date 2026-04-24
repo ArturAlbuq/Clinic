@@ -109,6 +109,30 @@ $$;
 --         com_laudo = false that have no existing laudo pipeline
 -- =============================================================================
 
+-- 2. Backfill com_laudo into metadata of existing laudo pipeline_items
+--    that were created before this migration (no com_laudo key in metadata).
+--    These items were only created when queue_item.com_laudo = true,
+--    so we set com_laudo = true for those linked via queue_item_id (direct column)
+--    and via the junction table.
+update public.pipeline_items pi
+set metadata = pi.metadata || jsonb_build_object('com_laudo', qi.com_laudo)
+from public.queue_items qi
+where pi.pipeline_type = 'laudo'
+  and not (pi.metadata ? 'com_laudo')
+  and qi.id = pi.queue_item_id;
+
+-- Also fix items linked only via junction table (queue_item_id on pipeline_items may be null
+-- for items that use the junction table exclusively)
+update public.pipeline_items pi
+set metadata = pi.metadata || jsonb_build_object('com_laudo', qi.com_laudo)
+from public.pipeline_item_queue_items piqi
+join public.queue_items qi on qi.id = piqi.queue_item_id
+where pi.id = piqi.pipeline_item_id
+  and pi.pipeline_type = 'laudo'
+  and not (pi.metadata ? 'com_laudo');
+
+-- 3. Backfill laudo pipeline_items for finalizado queue_items with
+--    com_laudo = false that have no existing laudo pipeline
 do $$
 declare
   r record;

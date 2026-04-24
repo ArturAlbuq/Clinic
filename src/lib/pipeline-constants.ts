@@ -73,7 +73,7 @@ function getLaudoNextStatuses(
   current: PipelineStatus,
   metadata: Record<string, unknown>
 ): PipelineStatus[] {
-  const comLaudo = Boolean(metadata.com_laudo);
+  const comLaudo = metadata.com_laudo === true;
 
   if (!comLaudo) {
     const map: Partial<Record<PipelineStatus, PipelineStatus[]>> = {
