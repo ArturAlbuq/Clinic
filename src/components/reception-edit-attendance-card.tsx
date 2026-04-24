@@ -35,6 +35,13 @@ function buildEditableExamQuantities(attendance: AttendanceWithQueueItems) {
   );
 }
 
+function buildLaudoPerExam(queueItems: AttendanceWithQueueItems["queueItems"]) {
+  return queueItems.reduce<Partial<Record<ExamType, boolean>>>((acc, item) => {
+    if (item.com_laudo) acc[item.exam_type] = true;
+    return acc;
+  }, {});
+}
+
 export function ReceptionEditAttendanceCard({
   attendance,
   isToday,
@@ -52,13 +59,7 @@ export function ReceptionEditAttendanceCard({
       attendance.com_laboratorio_externo_escaneamento,
   };
 
-  const laudoPerExamReadOnly = attendance.queueItems.reduce<Partial<Record<ExamType, boolean>>>(
-    (acc, item) => {
-      if (item.com_laudo) acc[item.exam_type] = true;
-      return acc;
-    },
-    {},
-  );
+  const laudoPerExamReadOnly = buildLaudoPerExam(attendance.queueItems);
   function noopTogglePipelineFlag(
     _flag: keyof PipelineFlags,
     _value: boolean,
@@ -90,10 +91,7 @@ export function ReceptionEditAttendanceCard({
       attendance.com_laboratorio_externo_escaneamento,
   });
   const [laudoPerExam, setLaudoPerExam] = useState<Partial<Record<ExamType, boolean>>>(
-    attendance.queueItems.reduce<Partial<Record<ExamType, boolean>>>((acc, item) => {
-      if (item.com_laudo) acc[item.exam_type] = true;
-      return acc;
-    }, {}),
+    () => buildLaudoPerExam(attendance.queueItems),
   );
   const [flagsReason, setFlagsReason] = useState("");
 
@@ -108,10 +106,22 @@ export function ReceptionEditAttendanceCard({
     setSelectedExams(initialSelectedExams);
     setExamQuantities(initialExamQuantities);
     setMutationError("");
+    setPipelineFlags({
+      com_cefalometria: attendance.com_cefalometria,
+      com_impressao_fotografia: attendance.com_impressao_fotografia,
+      com_laboratorio_externo_escaneamento:
+        attendance.com_laboratorio_externo_escaneamento,
+    });
+    setLaudoPerExam(buildLaudoPerExam(attendance.queueItems));
+    setFlagsReason("");
   }, [
+    attendance.com_cefalometria,
+    attendance.com_impressao_fotografia,
+    attendance.com_laboratorio_externo_escaneamento,
     attendance.notes,
     attendance.patient_name,
     attendance.patient_registration_number,
+    attendance.queueItems,
     initialExamQuantities,
     initialSelectedExams,
     isEditing,
@@ -164,12 +174,7 @@ export function ReceptionEditAttendanceCard({
       com_laboratorio_externo_escaneamento:
         attendance.com_laboratorio_externo_escaneamento,
     });
-    setLaudoPerExam(
-      attendance.queueItems.reduce<Partial<Record<ExamType, boolean>>>((acc, item) => {
-        if (item.com_laudo) acc[item.exam_type] = true;
-        return acc;
-      }, {}),
-    );
+    setLaudoPerExam(buildLaudoPerExam(attendance.queueItems));
     setFlagsReason("");
   }
 
