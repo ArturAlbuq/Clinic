@@ -84,18 +84,26 @@ export async function PATCH(
     );
   }
 
-  const correctFlagsAttempt = await supabase.rpc(
-    "correct_exam_flags" as any,
-    {
-      p_attendance_id: id,
-      p_com_cefalometria: body.comCefalometria,
-      p_com_impressao_fotografia: body.comImpressaoFotografia,
-      p_com_laboratorio_externo_escaneamento:
-        body.comLaboratorioExternoEscaneamento,
-      p_com_laudo_per_exam: body.comLaudoPerExam,
-      p_reason: reason,
-    },
-  );
+  if (
+    typeof body.comCefalometria !== "boolean" ||
+    typeof body.comImpressaoFotografia !== "boolean" ||
+    typeof body.comLaboratorioExternoEscaneamento !== "boolean"
+  ) {
+    return NextResponse.json(
+      { error: "Campos de marcacao invalidos." },
+      { status: 400 },
+    );
+  }
+
+  const correctFlagsAttempt = await supabase.rpc("correct_exam_flags", {
+    p_attendance_id: id,
+    p_com_cefalometria: body.comCefalometria,
+    p_com_impressao_fotografia: body.comImpressaoFotografia,
+    p_com_laboratorio_externo_escaneamento:
+      body.comLaboratorioExternoEscaneamento,
+    p_com_laudo_per_exam: body.comLaudoPerExam,
+    p_reason: reason,
+  });
 
   const data = correctFlagsAttempt.data;
 

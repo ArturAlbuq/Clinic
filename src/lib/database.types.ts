@@ -781,6 +781,18 @@ export type Database = {
         }
         Returns: Json
       }
+      correct_exam_flags: {
+        Args: {
+          p_attendance_id: string
+          p_com_cefalometria: boolean
+          p_com_impressao_fotografia: boolean
+          p_com_laboratorio_externo_escaneamento: boolean
+          p_com_laudo_per_exam: Json
+          p_reason: string
+          p_performed_by?: string
+        }
+        Returns: Json
+      }
       create_attendance_with_queue_items:
         | {
             Args: {
