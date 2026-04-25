@@ -17,7 +17,7 @@ const LAUDO_PIPELINE_EXAMS = new Set<ExamType>([
   "tomografia",
 ]);
 
-export const PIPELINE_ITEM_BASE_SELECT = `id, attendance_id, queue_item_id, pipeline_type, status, responsible_id, sla_deadline, metadata, opened_at, updated_at, finished_at,
+export const PIPELINE_ITEM_BASE_SELECT = `id, attendance_id, queue_item_id, pipeline_type, status, responsible_id, sla_deadline, step_deadline, metadata, opened_at, updated_at, finished_at,
   attendances!inner ( patient_name, deleted_at ), profiles!pipeline_items_responsible_id_fkey ( full_name )`;
 
 export type PipelineItemBaseRow = {
@@ -28,6 +28,7 @@ export type PipelineItemBaseRow = {
   status: PipelineStatus;
   responsible_id: string | null;
   sla_deadline: string | null;
+  step_deadline: string | null;
   metadata: Json;
   opened_at: string;
   updated_at: string;

@@ -60,6 +60,7 @@ test(
         queue_item_id: "queue-item-periapical",
         responsible_id: null,
         sla_deadline: null,
+        step_deadline: null,
         status: "nao_iniciado",
         updated_at: openedAt,
       },
