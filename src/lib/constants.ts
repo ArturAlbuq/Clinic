@@ -127,7 +127,7 @@ export const ROOM_EXAM_LABELS: Record<RoomSlug, string> = {
 };
 
 export const STATUS_LABELS: Record<QueueStatus, string> = {
-  aguardando: "Aguardando ser chamado",
+  aguardando: "Aguardando",
   chamado: "Chamado",
   em_atendimento: "Em exame",
   finalizado: "Concluido",
@@ -135,7 +135,7 @@ export const STATUS_LABELS: Record<QueueStatus, string> = {
 };
 
 export const ROOM_STATUS_LABELS: Record<QueueStatus, string> = {
-  aguardando: "Aguardando ser chamado",
+  aguardando: "Aguardando",
   chamado: "Chamado",
   em_atendimento: "Em exame",
   finalizado: "Concluido",
