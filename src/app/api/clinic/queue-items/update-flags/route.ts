@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { logServerError } from "@/lib/server-error";
 import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
+import {
+  normalizeAttendanceRecord,
+  normalizeQueueItemRecord,
+} from "@/lib/queue";
 
 type UpdateFlagsItem = {
   queueItemId: string;
@@ -28,6 +32,84 @@ function validateSameOrigin(request: Request) {
   return null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function validateBody(value: unknown): UpdateFlagsBody | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const attendanceId =
+    typeof value.attendanceId === "string" ? value.attendanceId.trim() : "";
+
+  if (
+    !attendanceId ||
+    !Array.isArray(value.items) ||
+    value.items.length === 0 ||
+    typeof value.comCefalometria !== "boolean" ||
+    typeof value.comImpressaoFotografia !== "boolean" ||
+    typeof value.comLaboratorioExternoEscaneamento !== "boolean"
+  ) {
+    return null;
+  }
+
+  const items: UpdateFlagsItem[] = [];
+
+  for (const item of value.items) {
+    if (!isRecord(item)) {
+      return null;
+    }
+
+    const queueItemId =
+      typeof item.queueItemId === "string" ? item.queueItemId.trim() : "";
+
+    if (!queueItemId || typeof item.comLaudo !== "boolean") {
+      return null;
+    }
+
+    items.push({
+      queueItemId,
+      comLaudo: item.comLaudo,
+    });
+  }
+
+  return {
+    attendanceId,
+    items,
+    comCefalometria: value.comCefalometria,
+    comImpressaoFotografia: value.comImpressaoFotografia,
+    comLaboratorioExternoEscaneamento:
+      value.comLaboratorioExternoEscaneamento,
+  };
+}
+
+async function validateQueueItemsBelongToAttendance(
+  supabase: Awaited<ReturnType<typeof requireRole>>["supabase"],
+  attendanceId: string,
+  queueItemIds: string[],
+) {
+  const uniqueQueueItemIds = Array.from(new Set(queueItemIds));
+  const { data, error } = await supabase
+    .from("queue_items")
+    .select("id, attendance_id")
+    .in("id", uniqueQueueItemIds);
+
+  if (error) {
+    logServerError("queue_items.validate_update_flags", error);
+    return false;
+  }
+
+  const rows = (data ?? []) as Pick<QueueItemRecord, "id" | "attendance_id">[];
+
+  if (rows.length !== uniqueQueueItemIds.length) {
+    return false;
+  }
+
+  return rows.every((row) => row.attendance_id === attendanceId);
+}
+
 export async function POST(request: Request) {
   const originError = validateSameOrigin(request);
   if (originError) return originError;
@@ -36,18 +118,23 @@ export async function POST(request: Request) {
 
   let body: UpdateFlagsBody | null = null;
   try {
-    body = (await request.json()) as UpdateFlagsBody;
+    body = validateBody(await request.json());
   } catch {
     return jsonError("Corpo da requisicao invalido.", 400);
   }
 
-  if (
-    !body ||
-    !body.attendanceId ||
-    !Array.isArray(body.items) ||
-    body.items.length === 0
-  ) {
-    return jsonError("attendanceId e items sao obrigatorios.", 400);
+  if (!body) {
+    return jsonError("Dados da requisicao invalidos.", 400);
+  }
+
+  const queueItemsAreValid = await validateQueueItemsBelongToAttendance(
+    supabase,
+    body.attendanceId,
+    body.items.map((item) => item.queueItemId),
+  );
+
+  if (!queueItemsAreValid) {
+    return jsonError("Exames invalidos para o atendimento.", 400);
   }
 
   const updatedQueueItems: QueueItemRecord[] = [];
@@ -82,7 +169,9 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    attendance: updatedAttendance,
-    queueItems: updatedQueueItems,
+    attendance: normalizeAttendanceRecord(updatedAttendance),
+    queueItems: updatedQueueItems.map((queueItem) =>
+      normalizeQueueItemRecord(queueItem),
+    ),
   });
 }
