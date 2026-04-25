@@ -334,6 +334,7 @@ export type Database = {
           queue_item_id: string | null
           responsible_id: string | null
           sla_deadline: string | null
+          step_deadline: string | null
           status: Database["public"]["Enums"]["pipeline_status"]
           updated_at: string
         }
@@ -349,6 +350,7 @@ export type Database = {
           queue_item_id?: string | null
           responsible_id?: string | null
           sla_deadline?: string | null
+          step_deadline?: string | null
           status?: Database["public"]["Enums"]["pipeline_status"]
           updated_at?: string
         }
@@ -364,6 +366,7 @@ export type Database = {
           queue_item_id?: string | null
           responsible_id?: string | null
           sla_deadline?: string | null
+          step_deadline?: string | null
           status?: Database["public"]["Enums"]["pipeline_status"]
           updated_at?: string
         }
