@@ -786,8 +786,6 @@ export function isQueueItemNew(
 export function getNextStatus(status: QueueStatus): QueueStatus | null {
   switch (status) {
     case "aguardando":
-      return "chamado";
-    case "chamado":
       return "em_atendimento";
     case "em_atendimento":
       return "finalizado";
@@ -799,8 +797,6 @@ export function getNextStatus(status: QueueStatus): QueueStatus | null {
 export function getNextStatusLabel(status: QueueStatus) {
   switch (status) {
     case "aguardando":
-      return "Chamar paciente";
-    case "chamado":
       return "Iniciar exame";
     case "em_atendimento":
       return "Concluir exame";

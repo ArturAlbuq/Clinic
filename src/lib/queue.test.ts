@@ -6,6 +6,7 @@ import {
   getAttendanceTotalMinutes,
   getAttendanceOverallStatus,
   getNextStatus,
+  getNextStatusLabel,
   getQueueStageExecutionMinutes,
   getQueueStageTotalMinutes,
   getQueueWaitMinutes,
@@ -82,11 +83,19 @@ function buildQueueItem(
 }
 
 test("getNextStatus respeita o fluxo operacional", () => {
-  assert.equal(getNextStatus("aguardando"), "chamado");
-  assert.equal(getNextStatus("chamado"), "em_atendimento");
+  assert.equal(getNextStatus("aguardando"), "em_atendimento");
+  assert.equal(getNextStatus("chamado"), null);
   assert.equal(getNextStatus("em_atendimento"), "finalizado");
   assert.equal(getNextStatus("finalizado"), null);
   assert.equal(getNextStatus("cancelado"), null);
+});
+
+test("getNextStatusLabel retorna o label correto para cada status", () => {
+  assert.equal(getNextStatusLabel("aguardando"), "Iniciar exame");
+  assert.equal(getNextStatusLabel("chamado"), null);
+  assert.equal(getNextStatusLabel("em_atendimento"), "Concluir exame");
+  assert.equal(getNextStatusLabel("finalizado"), null);
+  assert.equal(getNextStatusLabel("cancelado"), null);
 });
 
 test("getAttendanceOverallStatus deriva a situacao corretamente", () => {
