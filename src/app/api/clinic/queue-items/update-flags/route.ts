@@ -85,7 +85,7 @@ function validateBody(value: unknown): UpdateFlagsBody | null {
   };
 }
 
-async function validateQueueItemsBelongToAttendance(
+async function validateQueueItemsForUpdate(
   supabase: Awaited<ReturnType<typeof requireRole>>["supabase"],
   attendanceId: string,
   queueItemIds: string[],
@@ -93,21 +93,36 @@ async function validateQueueItemsBelongToAttendance(
   const uniqueQueueItemIds = Array.from(new Set(queueItemIds));
   const { data, error } = await supabase
     .from("queue_items")
-    .select("id, attendance_id")
+    .select("id, attendance_id, status, deleted_at")
     .in("id", uniqueQueueItemIds);
 
   if (error) {
     logServerError("queue_items.validate_update_flags", error);
-    return false;
+    return "Nao foi possivel validar os exames.";
   }
 
-  const rows = (data ?? []) as Pick<QueueItemRecord, "id" | "attendance_id">[];
+  const rows = (data ?? []) as Pick<
+    QueueItemRecord,
+    "id" | "attendance_id" | "status" | "deleted_at"
+  >[];
 
   if (rows.length !== uniqueQueueItemIds.length) {
-    return false;
+    return "Exames invalidos para edicao.";
   }
 
-  return rows.every((row) => row.attendance_id === attendanceId);
+  if (rows.some((row) => row.attendance_id !== attendanceId)) {
+    return "Exames invalidos para o atendimento.";
+  }
+
+  if (rows.some((row) => row.deleted_at)) {
+    return "Exames excluidos nao podem ser editados.";
+  }
+
+  if (rows.some((row) => row.status === "cancelado")) {
+    return "Exames cancelados nao podem ser editados.";
+  }
+
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -127,14 +142,14 @@ export async function POST(request: Request) {
     return jsonError("Dados da requisicao invalidos.", 400);
   }
 
-  const queueItemsAreValid = await validateQueueItemsBelongToAttendance(
+  const queueItemsError = await validateQueueItemsForUpdate(
     supabase,
     body.attendanceId,
     body.items.map((item) => item.queueItemId),
   );
 
-  if (!queueItemsAreValid) {
-    return jsonError("Exames invalidos para o atendimento.", 400);
+  if (queueItemsError) {
+    return jsonError(queueItemsError, 400);
   }
 
   const updatedQueueItems: QueueItemRecord[] = [];
