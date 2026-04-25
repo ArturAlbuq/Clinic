@@ -621,10 +621,10 @@ export function GerencialDashboard({
                     {formatDateTime(item.opened_at)}
                   </td>
                   <td
-                    className={`px-4 py-3 ${getSlaClass(item.sla_deadline, item.status)}`}
+                    className={`px-4 py-3 ${getSlaClass(item.status === "enviado_radiologista" ? item.step_deadline : item.sla_deadline, item.status)}`}
                   >
-                    {item.sla_deadline ? (
-                      formatDateTime(item.sla_deadline)
+                    {(item.status === "enviado_radiologista" ? item.step_deadline : item.sla_deadline) ? (
+                      formatDateTime((item.status === "enviado_radiologista" ? item.step_deadline : item.sla_deadline)!)
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
