@@ -2,6 +2,7 @@
 ALTER TABLE pipeline_items ADD COLUMN step_deadline timestamptz;
 
 -- 2. Função auxiliar add_business_days
+DROP FUNCTION IF EXISTS add_business_days(timestamptz, int);
 CREATE OR REPLACE FUNCTION add_business_days(start_ts timestamptz, days int)
 RETURNS timestamptz
 LANGUAGE plpgsql
