@@ -30,7 +30,6 @@ type AttendanceMutationPayload = {
 
 const ALLOWED_STATUSES = new Set<QueueStatus>([
   "aguardando",
-  "chamado",
   "em_atendimento",
   "finalizado",
 ]);
