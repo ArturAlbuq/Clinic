@@ -515,10 +515,10 @@ export function PosAtendimentoDashboard({
                     {formatDateTime(item.opened_at)}
                   </td>
                   <td
-                    className={`px-4 py-3 ${getSlaAlertClass(item.sla_deadline)}`}
+                    className={`px-4 py-3 ${getSlaAlertClass(item.status === "enviado_radiologista" ? item.step_deadline : item.sla_deadline)}`}
                   >
-                    {item.sla_deadline ? (
-                      formatDateTime(item.sla_deadline)
+                    {(item.status === "enviado_radiologista" ? item.step_deadline : item.sla_deadline) ? (
+                      formatDateTime((item.status === "enviado_radiologista" ? item.step_deadline : item.sla_deadline)!)
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
