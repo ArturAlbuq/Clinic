@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 const SUBTYPE_LABELS: Record<string, string> = {
   laudo_2d: "Laudo 2D (panorâmica, periapical, interproximal)",
   laudo_tomografia: "Laudo tomografia",
+  laudo_enviado_radiologista: "Enviado ao radiologista (prazo de etapa)",
   cefalometria: "Cefalometria",
   fotografia_idoc: "Fotografia (iDoc)",
   fotografia_impressao: "Fotografia (impressão)",
