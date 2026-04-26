@@ -102,27 +102,66 @@ export async function fetchAttendances(
   },
 ): Promise<AttendanceRecord[]> {
   const { startIso, endIso } = options?.range ?? getTodayBounds();
-  const attendanceIds = await listScopedAttendanceIds(supabase, {
-    includePendingReturns: options?.includePendingReturns ?? false,
-    range: { endIso, startIso },
+  const includePendingReturns = options?.includePendingReturns ?? false;
+  const range = { endIso, startIso };
+
+  const pendingAttendanceIds = await fetchPendingReturnAttendanceIds(supabase, {
+    includePendingReturns,
+    range,
   });
 
-  if (!attendanceIds.length) {
-    return [];
-  }
-
-  const { data, error } = await supabase
+  let query = supabase
     .from("attendances")
     .select("*")
-    .is("deleted_at", null)
-    .in("id", attendanceIds)
-    .order("created_at", { ascending: false });
+    .is("deleted_at", null);
+
+  if (pendingAttendanceIds.length) {
+    query = query.or(
+      `and(created_at.gte.${range.startIso},created_at.lt.${range.endIso}),id.in.(${pendingAttendanceIds.join(",")})`,
+    );
+  } else {
+    query = query
+      .gte("created_at", range.startIso)
+      .lt("created_at", range.endIso);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error) {
     throw error;
   }
 
   return ((data ?? []) as AttendanceRecord[]).map(normalizeAttendanceRecord);
+}
+
+async function fetchPendingReturnAttendanceIds(
+  supabase: QueueClient,
+  options: { includePendingReturns: boolean; range: QueueDateRange },
+): Promise<string[]> {
+  const { includePendingReturns, range } = options;
+  if (!includePendingReturns || !isRangeToday(range)) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("queue_items")
+    .select("attendance_id")
+    .not("status", "in", '("finalizado","cancelado")');
+
+  if (error) {
+    throw error;
+  }
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of data ?? []) {
+    const id = item.attendance_id;
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      result.push(id);
+    }
+  }
+  return result;
 }
 
 export async function fetchQueueItems(
@@ -134,20 +173,31 @@ export async function fetchQueueItems(
   },
 ): Promise<QueueItemRecord[]> {
   const { startIso, endIso } = options?.range ?? getTodayBounds();
-  const attendanceIds = await listScopedAttendanceIds(supabase, {
-    includePendingReturns: options?.includePendingReturns ?? false,
-    range: { endIso, startIso },
-  });
+  const range = { endIso, startIso };
+  const includePendingReturns = options?.includePendingReturns ?? false;
 
-  if (!attendanceIds.length) {
-    return [];
-  }
+  const pendingAttendanceIds = await fetchPendingReturnAttendanceIds(supabase, {
+    includePendingReturns,
+    range,
+  });
 
   let query = supabase
     .from("queue_items")
-    .select("*")
-    .in("attendance_id", attendanceIds)
-    .order("created_at", { ascending: true });
+    .select("*, attendances!inner(id,created_at,deleted_at)")
+    .is("attendances.deleted_at", null);
+
+  if (pendingAttendanceIds.length) {
+    query = query.or(
+      `and(created_at.gte.${range.startIso},created_at.lt.${range.endIso}),id.in.(${pendingAttendanceIds.join(",")})`,
+      { foreignTable: "attendances" },
+    );
+  } else {
+    query = query
+      .gte("attendances.created_at", range.startIso)
+      .lt("attendances.created_at", range.endIso);
+  }
+
+  query = query.order("created_at", { ascending: true });
 
   if (options?.roomSlug) {
     query = query.eq("room_slug", options.roomSlug);
@@ -159,7 +209,9 @@ export async function fetchQueueItems(
     throw error;
   }
 
-  return ((data ?? []) as QueueItemRecord[]).map(normalizeQueueItemRecord);
+  return ((data ?? []) as Array<QueueItemRecord & { attendances?: unknown }>).map(
+    ({ attendances: _attendances, ...item }) => normalizeQueueItemRecord(item as QueueItemRecord),
+  );
 }
 
 export async function fetchDeletedAttendanceRecords(
@@ -230,69 +282,6 @@ export async function fetchDeletedAttendanceRecords(
       ),
     } satisfies DeletedAttendanceRecord;
   });
-}
-
-async function listScopedAttendanceIds(
-  supabase: QueueClient,
-  options: {
-    includePendingReturns: boolean;
-    range: QueueDateRange;
-  },
-) {
-  const attendanceIds = new Set<string>();
-  const { includePendingReturns, range } = options;
-
-  const { data: rangedAttendances, error: rangedAttendancesError } = await supabase
-    .from("attendances")
-    .select("id")
-    .gte("created_at", range.startIso)
-    .lt("created_at", range.endIso)
-    .is("deleted_at", null);
-
-  if (rangedAttendancesError) {
-    throw rangedAttendancesError;
-  }
-
-  for (const attendance of rangedAttendances ?? []) {
-    if (attendance.id) {
-      attendanceIds.add(attendance.id);
-    }
-  }
-
-  if (includePendingReturns && isRangeToday(range)) {
-    const { data: pendingItems, error: pendingError } = await supabase
-      .from("queue_items")
-      .select("attendance_id")
-      .not("status", "in", '("finalizado","cancelado")');
-
-    if (pendingError) {
-      throw pendingError;
-    }
-
-    for (const item of pendingItems ?? []) {
-      if (item.attendance_id) {
-        attendanceIds.add(item.attendance_id);
-      }
-    }
-  }
-
-  if (!attendanceIds.size) {
-    return [] as string[];
-  }
-
-  const { data: visibleAttendances, error: visibleAttendancesError } = await supabase
-    .from("attendances")
-    .select("id")
-    .in("id", Array.from(attendanceIds))
-    .is("deleted_at", null);
-
-  if (visibleAttendancesError) {
-    throw visibleAttendancesError;
-  }
-
-  return (visibleAttendances ?? [])
-    .map((attendance) => attendance.id)
-    .filter((attendanceId): attendanceId is string => Boolean(attendanceId));
 }
 
 export async function fetchExamRooms(
