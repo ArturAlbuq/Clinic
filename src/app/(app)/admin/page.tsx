@@ -39,6 +39,33 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     console.log("[admin] start", { period, range });
     const { data: profiles } = await supabase.from("profiles").select("*").order("full_name", { ascending: true });
     console.log("[admin] profiles ok");
+
+    // fetchAttendances inline para identificar qual sub-query falha
+    console.log("[admin] listScoped step1 — rangedAttendances");
+    const { data: rangedAttendances, error: rangedErr } = await supabase
+      .from("attendances").select("id")
+      .gte("created_at", range.startIso).lt("created_at", range.endIso)
+      .is("deleted_at", null);
+    if (rangedErr) throw Object.assign(rangedErr, { step: "rangedAttendances" });
+    console.log("[admin] rangedAttendances ok", rangedAttendances?.length);
+
+    console.log("[admin] listScoped step2 — visibleAttendances");
+    const { data: visibleAttendances, error: visibleErr } = await supabase
+      .from("attendances").select("id")
+      .in("id", (rangedAttendances ?? []).map((a: { id: string }) => a.id))
+      .is("deleted_at", null);
+    if (visibleErr) throw Object.assign(visibleErr, { step: "visibleAttendances" });
+    console.log("[admin] visibleAttendances ok", visibleAttendances?.length);
+
+    console.log("[admin] listScoped step3 — select star attendances");
+    const { data: attendancesRaw, error: attErr } = await supabase
+      .from("attendances").select("*")
+      .is("deleted_at", null)
+      .in("id", (visibleAttendances ?? []).map((a: { id: string }) => a.id))
+      .order("created_at", { ascending: false });
+    if (attErr) throw Object.assign(attErr, { step: "attendances select star" });
+    console.log("[admin] attendances select star ok", attendancesRaw?.length);
+
     const attendances = await fetchAttendances(supabase, { includePendingReturns: true, range });
     console.log("[admin] attendances ok", attendances.length);
     const deletionRecords = await fetchDeletedAttendanceRecords(supabase, { range });
