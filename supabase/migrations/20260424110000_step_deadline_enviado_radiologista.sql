@@ -1,5 +1,5 @@
 -- 1. Nova coluna step_deadline em pipeline_items
-ALTER TABLE pipeline_items ADD COLUMN step_deadline timestamptz;
+ALTER TABLE pipeline_items ADD COLUMN IF NOT EXISTS step_deadline timestamptz;
 
 -- 2. Função auxiliar add_business_days
 DROP FUNCTION IF EXISTS add_business_days(timestamptz, int);
@@ -51,6 +51,8 @@ END;
 $$;
 
 -- 5. Trigger
+DROP TRIGGER IF EXISTS pipeline_items_step_deadline ON pipeline_items;
+
 CREATE TRIGGER pipeline_items_step_deadline
 BEFORE UPDATE ON pipeline_items
 FOR EACH ROW

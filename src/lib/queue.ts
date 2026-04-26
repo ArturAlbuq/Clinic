@@ -493,6 +493,25 @@ export function getPriorityRank(priority: AttendancePriority) {
   return PRIORITY_ORDER.indexOf(priority);
 }
 
+export function getNextAguardando<T extends QueueItemWithAttendance>(
+  items: T[],
+): T | null {
+  const aguardando = items.filter((item) => item.status === "aguardando");
+  if (!aguardando.length) return null;
+
+  return aguardando.reduce((best, item) => {
+    const bestRank = getPriorityRank(best.attendance?.priority ?? "normal");
+    const itemRank = getPriorityRank(item.attendance?.priority ?? "normal");
+    if (itemRank < bestRank) return item;
+    if (itemRank === bestRank) {
+      const bestTime = new Date(getQueueItemQueueStartAt(best)).getTime();
+      const itemTime = new Date(getQueueItemQueueStartAt(item)).getTime();
+      return itemTime < bestTime ? item : best;
+    }
+    return best;
+  });
+}
+
 export function sortAttendancesByPriorityAndCreatedAt<
   T extends Pick<AttendanceRecord, "created_at" | "priority">,
 >(attendances: T[]) {

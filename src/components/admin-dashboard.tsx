@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AttendanceExamsTable } from "@/components/attendance-exams-table";
 import { AttendanceTimeline } from "@/components/attendance-timeline";
+import { EditPipelineFlagsModal } from "@/components/edit-pipeline-flags-modal";
 import { EmptyState } from "@/components/empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityBadge } from "@/components/priority-badge";
@@ -817,6 +818,7 @@ function AttendanceRow({
   const [isCancelFormOpen, setIsCancelFormOpen] = useState(false);
   const [isDeleteFormOpen, setIsDeleteFormOpen] = useState(false);
   const [isReturnFormOpen, setIsReturnFormOpen] = useState(false);
+  const [isFlagsModalOpen, setIsFlagsModalOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -872,6 +874,9 @@ function AttendanceRow({
     : "Sem identificacao";
   const actionableStageItems = orderedItems.filter(
     (item) => item.status !== "finalizado" && item.status !== "cancelado",
+  );
+  const hasEditablePipelineFlagItems = attendance.queueItems.some(
+    (item) => item.status !== "cancelado",
   );
   const effectiveSelectedStageItemId =
     selectedStageItemId &&
@@ -933,6 +938,23 @@ function AttendanceRow({
       ...current,
       [examType]: quantity,
     }));
+  }
+
+  function handleFlagsSaved(
+    updatedAttendance: AttendanceRecord,
+    updatedQueueItems: QueueItemRecord[],
+  ) {
+    const updatedQueueItemById = new Map(
+      updatedQueueItems.map((item) => [item.id, item]),
+    );
+    const currentQueueItemIds = new Set(attendance.queueItems.map((item) => item.id));
+    const mergedQueueItems = sortAttendanceQueueItemsByFlow([
+      ...attendance.queueItems.map((item) => updatedQueueItemById.get(item.id) ?? item),
+      ...updatedQueueItems.filter((item) => !currentQueueItemIds.has(item.id)),
+    ]);
+
+    onAttendanceSaved(updatedAttendance, mergedQueueItems);
+    setIsFlagsModalOpen(false);
   }
 
   async function submitEdit() {
@@ -1231,6 +1253,7 @@ function AttendanceRow({
                   setReturnReason(nextStageItem?.return_pending_reason ?? "");
                   setIsCancelFormOpen(false);
                   setIsReturnFormOpen(false);
+                  setIsFlagsModalOpen(false);
                   setMutationError("");
                 }}
               >
@@ -1256,6 +1279,7 @@ function AttendanceRow({
                 onClick={() => {
                   setMutationError("");
                   setIsReturnFormOpen(false);
+                  setIsFlagsModalOpen(false);
                   setIsCancelFormOpen((current) => !current);
                 }}
                 disabled={isCanceling}
@@ -1269,6 +1293,7 @@ function AttendanceRow({
               onClick={() => {
                 setMutationError("");
                 setIsDeleteFormOpen(false);
+                setIsFlagsModalOpen(false);
                 setIsEditing((current) => !current);
               }}
             >
@@ -1281,6 +1306,7 @@ function AttendanceRow({
                 onClick={() => {
                   setMutationError("");
                   setIsDeleteFormOpen(false);
+                  setIsFlagsModalOpen(false);
                   if (selectedStageIsReturnPending) {
                     void submitReturnPending(false);
                     return;
@@ -1299,6 +1325,22 @@ function AttendanceRow({
                     : "Marcar pendencia do exame"}
               </button>
             ) : null}
+            {hasEditablePipelineFlagItems ? (
+              <button
+                className="rounded-[18px] border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-800 transition hover:bg-indigo-100"
+                type="button"
+                onClick={() => {
+                  setMutationError("");
+                  setIsCancelFormOpen(false);
+                  setIsReturnFormOpen(false);
+                  setIsDeleteFormOpen(false);
+                  setIsEditing(false);
+                  setIsFlagsModalOpen(true);
+                }}
+              >
+                Editar flags
+              </button>
+            ) : null}
             <button
               className="rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
               type="button"
@@ -1306,6 +1348,7 @@ function AttendanceRow({
                 setMutationError("");
                 setIsCancelFormOpen(false);
                 setIsReturnFormOpen(false);
+                setIsFlagsModalOpen(false);
                 setIsDeleteFormOpen((current) => !current);
               }}
               disabled={isDeleting}
@@ -1448,6 +1491,13 @@ function AttendanceRow({
               </div>
             </div>
           ) : null}
+          {isFlagsModalOpen && (
+            <EditPipelineFlagsModal
+              attendance={attendance}
+              onSaved={handleFlagsSaved}
+              onClose={() => setIsFlagsModalOpen(false)}
+            />
+          )}
           {mutationError ? (
             <div className="rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {mutationError}

@@ -20,6 +20,7 @@ import { formatClock, formatDate, formatDateInputValue } from "@/lib/date";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import {
   combineQueueItemsWithAttendances,
+  getNextAguardando,
   isQueueItemNew,
   isQueueItemReturnPending,
   sortRoomQueueItems,
@@ -167,8 +168,7 @@ export function AttendanceOverview({
           const visibleRoomItems = roomItems.filter(
             (item) => !isQueueItemReturnPending(item),
           );
-          const nextItem =
-            visibleRoomItems.find((item) => item.status === "aguardando") ?? null;
+          const nextItem = getNextAguardando(visibleRoomItems);
           const hasNewPatient = isToday
             ? visibleRoomItems.some((item) => isQueueItemNew(item))
             : false;
@@ -225,10 +225,20 @@ export function AttendanceOverview({
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Proximo paciente
-                </p>
+              <div className={nextItem ? "mt-5 rounded-[22px] border border-amber-400 bg-amber-50 px-4 py-4 ring-1 ring-amber-300" : "mt-5 rounded-[22px] border border-slate-200 bg-white/85 px-4 py-4"}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Proximo paciente
+                  </p>
+                  {nextItem ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-bold text-amber-950">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                      </svg>
+                      Próximo a chamar
+                    </span>
+                  ) : null}
+                </div>
                 {nextItem ? (
                   <div className="mt-2 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">

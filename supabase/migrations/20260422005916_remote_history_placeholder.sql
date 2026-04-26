@@ -1,0 +1,2 @@
+-- Placeholder migration to preserve remote history already applied in production.
+-- The original 20260422005916 version exists only in the linked Supabase project.

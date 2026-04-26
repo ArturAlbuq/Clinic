@@ -17,6 +17,7 @@
 /.next/
 /out/
 /clinic-scaffold/
+/.worktrees/
 
 # production
 /build

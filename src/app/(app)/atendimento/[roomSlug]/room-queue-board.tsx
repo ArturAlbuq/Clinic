@@ -34,6 +34,7 @@ import type { RoomSlug } from "@/lib/constants";
 import { useRealtimeClinicData } from "@/hooks/use-realtime-queue";
 import {
   combineQueueItemsWithAttendances,
+  getNextAguardando,
   getNextStatus,
   getNextStatusLabel,
   getQueueWaitMinutes,
@@ -117,6 +118,10 @@ export function RoomQueueBoard({
       item.status !== "cancelado" &&
       !item.attendance?.canceled_at &&
       !isQueueItemReturnPending(item, new Date(nowMs)),
+  );
+  const nextToCallId = useMemo(
+    () => getNextAguardando(visibleItems)?.id ?? null,
+    [visibleItems],
   );
   const returnPendingItems = orderedItems.filter(
     (item) =>
@@ -427,6 +432,7 @@ export function RoomQueueBoard({
             const referenceNow = nowMs;
             const waitMinutes = getQueueWaitMinutes(item, referenceNow);
             const isNew = isQueueItemNew(item, referenceNow);
+            const isNextToCall = item.id === nextToCallId;
             const registrationNumber = item.attendance?.patient_registration_number;
             const containerStyle = STATUS_CONTAINER_STYLES[item.status];
 
@@ -435,8 +441,8 @@ export function RoomQueueBoard({
                 key={item.id}
                 className={
                   isNew
-                    ? "rounded-[30px] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white px-6 py-6 shadow-[0_28px_60px_rgba(245,158,11,0.12)]"
-                    : `rounded-[30px] border px-6 py-6 ${containerStyle.article}`
+                    ? `rounded-[30px] border px-6 py-6 shadow-[0_28px_60px_rgba(245,158,11,0.12)] border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white${isNextToCall ? " ring-2 ring-amber-400 ring-offset-2 border-amber-400" : ""}`
+                    : `rounded-[30px] border px-6 py-6 ${containerStyle.article}${isNextToCall ? " ring-2 ring-amber-400 ring-offset-2 border-amber-400" : ""}`
                 }
               >
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -447,6 +453,14 @@ export function RoomQueueBoard({
                       </h3>
                       {item.attendance ? (
                         <PriorityBadge priority={item.attendance.priority} />
+                      ) : null}
+                      {isNextToCall ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-amber-950 shadow-sm">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                          Próximo a chamar
+                        </span>
                       ) : null}
                       {isNew ? (
                         <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">

@@ -120,7 +120,7 @@ set search_path = public
 as $$
 declare
   created_pipeline_item_id uuid;
-  v_sla_subtype public.sla_pipeline_subtype;
+  v_sla_subtype text;
   v_business_days integer;
   v_sla_deadline timestamptz;
 begin

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
-import { logServerError } from "@/lib/server-error";
 import type { AttendanceRecord, QueueItemRecord } from "@/lib/database.types";
 import {
   normalizeAttendanceRecord,
   normalizeQueueItemRecord,
 } from "@/lib/queue";
+import { logServerError } from "@/lib/server-error";
 
 type UpdateFlagsItem = {
   queueItemId: string;
@@ -20,23 +20,20 @@ type UpdateFlagsBody = {
   comLaboratorioExternoEscaneamento: boolean;
 };
 
+type UpdatePipelineFlagsResult = {
+  queueItem: QueueItemRecord;
+  attendance: AttendanceRecord;
+};
+
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
-}
-
-function validateSameOrigin(request: Request) {
-  const requestOrigin = request.headers.get("origin");
-  if (requestOrigin && requestOrigin !== new URL(request.url).origin) {
-    return jsonError("Origem invalida.", 403);
-  }
-  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function validateBody(value: unknown): UpdateFlagsBody | null {
+function parseBody(value: unknown): UpdateFlagsBody | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -44,10 +41,11 @@ function validateBody(value: unknown): UpdateFlagsBody | null {
   const attendanceId =
     typeof value.attendanceId === "string" ? value.attendanceId.trim() : "";
 
+  if (!attendanceId || !Array.isArray(value.items) || value.items.length === 0) {
+    return null;
+  }
+
   if (
-    !attendanceId ||
-    !Array.isArray(value.items) ||
-    value.items.length === 0 ||
     typeof value.comCefalometria !== "boolean" ||
     typeof value.comImpressaoFotografia !== "boolean" ||
     typeof value.comLaboratorioExternoEscaneamento !== "boolean"
@@ -83,6 +81,10 @@ function validateBody(value: unknown): UpdateFlagsBody | null {
     comLaboratorioExternoEscaneamento:
       value.comLaboratorioExternoEscaneamento,
   };
+}
+
+function hasDuplicateQueueItemIds(items: UpdateFlagsItem[]) {
+  return new Set(items.map((item) => item.queueItemId)).size !== items.length;
 }
 
 async function validateQueueItemsForUpdate(
@@ -126,20 +128,26 @@ async function validateQueueItemsForUpdate(
 }
 
 export async function POST(request: Request) {
-  const originError = validateSameOrigin(request);
-  if (originError) return originError;
+  const requestOrigin = request.headers.get("origin");
+  if (requestOrigin && requestOrigin !== new URL(request.url).origin) {
+    return jsonError("Origem invalida.", 403);
+  }
 
   const { supabase } = await requireRole("admin");
 
-  let body: UpdateFlagsBody | null = null;
+  let body: UpdateFlagsBody | null;
   try {
-    body = validateBody(await request.json());
+    body = parseBody(await request.json());
   } catch {
     return jsonError("Corpo da requisicao invalido.", 400);
   }
 
   if (!body) {
-    return jsonError("Dados da requisicao invalidos.", 400);
+    return jsonError("attendanceId e items sao obrigatorios.", 400);
+  }
+
+  if (hasDuplicateQueueItemIds(body.items)) {
+    return jsonError("Exames duplicados para edicao.", 400);
   }
 
   const queueItemsError = await validateQueueItemsForUpdate(
@@ -152,8 +160,8 @@ export async function POST(request: Request) {
     return jsonError(queueItemsError, 400);
   }
 
-  const updatedQueueItems: QueueItemRecord[] = [];
-  let updatedAttendance: AttendanceRecord | null = null;
+  const queueItems: QueueItemRecord[] = [];
+  let attendance: AttendanceRecord | null = null;
 
   for (const item of body.items) {
     const { data, error } = await supabase.rpc("update_pipeline_flags", {
@@ -170,22 +178,18 @@ export async function POST(request: Request) {
       return jsonError("Nao foi possivel atualizar os flags.", 400);
     }
 
-    const result = data as {
-      queueItem: QueueItemRecord;
-      attendance: AttendanceRecord;
-    };
-
-    updatedQueueItems.push(result.queueItem);
-    updatedAttendance = result.attendance;
+    const payload = data as UpdatePipelineFlagsResult;
+    queueItems.push(payload.queueItem);
+    attendance = payload.attendance;
   }
 
-  if (!updatedAttendance) {
+  if (!attendance) {
     return jsonError("Nenhum item foi processado.", 400);
   }
 
   return NextResponse.json({
-    attendance: normalizeAttendanceRecord(updatedAttendance),
-    queueItems: updatedQueueItems.map((queueItem) =>
+    attendance: normalizeAttendanceRecord(attendance),
+    queueItems: queueItems.map((queueItem) =>
       normalizeQueueItemRecord(queueItem),
     ),
   });

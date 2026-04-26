@@ -901,6 +901,16 @@ export type Database = {
             }
             Returns: Json
           }
+      update_pipeline_flags: {
+        Args: {
+          p_com_cefalometria?: boolean
+          p_com_impressao_fotografia?: boolean
+          p_com_laboratorio_externo_escaneamento?: boolean
+          p_com_laudo?: boolean
+          p_queue_item_id: string
+        }
+        Returns: Json
+      }
       user_can_access_attendance: {
         Args: { target_attendance_id: string }
         Returns: boolean
