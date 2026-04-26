@@ -34,13 +34,27 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const period = parseQueuePeriod(params.period);
   const selectedDate = parseDateInput(params.date);
   const range = getRangeBounds(period, selectedDate);
-  const [{ data: profiles }, attendances, deletionRecords, queueItems, rooms] = await Promise.all([
-    supabase.from("profiles").select("*").order("full_name", { ascending: true }),
-    fetchAttendances(supabase, { includePendingReturns: true, range }),
-    fetchDeletedAttendanceRecords(supabase, { range }),
-    fetchQueueItems(supabase, { includePendingReturns: true, range }),
-    fetchExamRooms(supabase),
-  ]);
+
+  async function fetchAll() {
+    console.log("[admin] start", { period, range });
+    const { data: profiles } = await supabase.from("profiles").select("*").order("full_name", { ascending: true });
+    console.log("[admin] profiles ok");
+    const attendances = await fetchAttendances(supabase, { includePendingReturns: true, range });
+    console.log("[admin] attendances ok", attendances.length);
+    const deletionRecords = await fetchDeletedAttendanceRecords(supabase, { range });
+    console.log("[admin] deletionRecords ok", deletionRecords.length);
+    const queueItems = await fetchQueueItems(supabase, { includePendingReturns: true, range });
+    console.log("[admin] queueItems ok", queueItems.length);
+    const rooms = await fetchExamRooms(supabase);
+    console.log("[admin] rooms ok", rooms.length);
+    return { profiles, attendances, deletionRecords, queueItems, rooms };
+  }
+
+  const { profiles, attendances, deletionRecords, queueItems, rooms } = await fetchAll().catch((err) => {
+    console.error("[admin] FETCH ERROR", JSON.stringify(err), err);
+    throw err;
+  });
+
   const deletedAttendances = deletionRecords.map((record) => ({
     ...record.attendance,
     queueItems: record.queueItems,
