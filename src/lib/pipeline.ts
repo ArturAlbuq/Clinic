@@ -191,15 +191,20 @@ export async function enrichPipelineItemsWithExams(
   const examsByPipelineItemId = new Map<string, PipelineLinkedExam[]>();
   const pipelineItemIdByQueueItemId = new Map<string, string[]>();
 
+  const itemIdSet = new Set(itemIds);
+
   const { data: linksData, error: linksError } = await supabase
     .from("pipeline_item_queue_items")
-    .select("pipeline_item_id, queue_item_id")
-    .in("pipeline_item_id", itemIds);
+    .select("pipeline_item_id, queue_item_id");
+
+  const filteredLinksData = linksError
+    ? null
+    : (linksData ?? []).filter((row) => itemIdSet.has(row.pipeline_item_id));
 
   const shouldUseLegacyFallbackOnly = Boolean(linksError);
 
   if (!shouldUseLegacyFallbackOnly) {
-    for (const row of (linksData ?? []) as PipelineItemQueueItemLinkRow[]) {
+    for (const row of (filteredLinksData ?? []) as PipelineItemQueueItemLinkRow[]) {
       const current = pipelineItemIdByQueueItemId.get(row.queue_item_id) ?? [];
       current.push(row.pipeline_item_id);
       pipelineItemIdByQueueItemId.set(row.queue_item_id, current);
@@ -214,25 +219,26 @@ export async function enrichPipelineItemsWithExams(
     .filter((value, index, current) => current.indexOf(value) === index);
 
   if (shouldUseLegacyFallbackOnly) {
-    const attendanceIds = Array.from(
-      new Set(items.map((item) => item.attendance_id)),
-    );
+    const attendanceIdSet = new Set(items.map((item) => item.attendance_id));
 
-    const { data: attendanceQueueItems, error: attendanceQueueItemsError } =
+    const { data: allQueueItems, error: attendanceQueueItemsError } =
       await supabase
         .from("queue_items")
         .select(
           "id, attendance_id, com_laudo, created_at, exam_type, finished_at, requested_quantity, updated_at",
-        )
-        .in("attendance_id", attendanceIds);
+        );
 
     if (attendanceQueueItemsError) {
       throw attendanceQueueItemsError;
     }
 
+    const attendanceQueueItems = (allQueueItems ?? []).filter(
+      (row) => row.attendance_id !== null && attendanceIdSet.has(row.attendance_id),
+    );
+
     const inferredExamsByPipelineItemId = inferPipelineExamsFromQueueItems(
       items,
-      (attendanceQueueItems ?? []) as LegacyQueueItemRow[],
+      attendanceQueueItems as LegacyQueueItemRow[],
     );
 
     for (const [pipelineItemId, exams] of inferredExamsByPipelineItemId.entries()) {
@@ -240,24 +246,28 @@ export async function enrichPipelineItemsWithExams(
     }
   } else {
     const linkedQueueItemIds = Array.from(pipelineItemIdByQueueItemId.keys());
-    const queueItemIdsToFetch = Array.from(
-      new Set([...linkedQueueItemIds, ...missingLegacyQueueItemIds]),
-    );
+    const queueItemIdsToFetch = new Set([
+      ...linkedQueueItemIds,
+      ...missingLegacyQueueItemIds,
+    ]);
 
-    if (queueItemIdsToFetch.length) {
-      const { data: legacyQueueItems, error: legacyQueueItemsError } =
+    if (queueItemIdsToFetch.size) {
+      const { data: allQueueItems, error: legacyQueueItemsError } =
         await supabase
           .from("queue_items")
           .select(
             "id, attendance_id, com_laudo, created_at, exam_type, finished_at, requested_quantity, updated_at",
-          )
-          .in("id", queueItemIdsToFetch);
+          );
 
       if (legacyQueueItemsError) {
         throw legacyQueueItemsError;
       }
 
-      for (const row of (legacyQueueItems ?? []) as LegacyQueueItemRow[]) {
+      const legacyQueueItems = (allQueueItems ?? []).filter((row) =>
+        queueItemIdsToFetch.has(row.id),
+      );
+
+      for (const row of legacyQueueItems as LegacyQueueItemRow[]) {
         const normalizedExam = normalizePipelineExam(row);
         fallbackExamsByQueueItemId.set(row.id, normalizedExam);
 

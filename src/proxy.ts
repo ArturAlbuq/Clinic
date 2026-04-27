@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 import { getSupabasePublicEnv, isSupabaseConfigured } from "@/lib/env";
 
-const PROTECTED_PREFIXES = ["/recepcao", "/atendimento", "/admin", "/gerencia"];
+const PROTECTED_PREFIXES = ["/recepcao", "/atendimento", "/admin", "/gerencia", "/pos-atendimento"];
 
 export async function proxy(request: NextRequest) {
   if (!isSupabaseConfigured()) {
@@ -33,9 +33,13 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Token inválido/expirado — tratar como não autenticado
+  }
 
   const pathname = request.nextUrl.pathname;
   const isProtected = PROTECTED_PREFIXES.some(

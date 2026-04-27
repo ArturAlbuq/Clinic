@@ -14,9 +14,14 @@ type SessionContext = {
 
 export const getSessionContext = cache(async (): Promise<SessionContext> => {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"];
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    return { profile: null, supabase, userId: null };
+  }
 
   if (!user) {
     return {
