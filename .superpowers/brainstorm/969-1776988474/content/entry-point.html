@@ -1,0 +1,26 @@
+<h2>Onde fica o acesso à edição de flags do exame?</h2>
+<p class="subtitle">O usuário (Gerência/Admin) precisa de um ponto de entrada para corrigir as marcações do exame (laudo, impressão, laboratório). Qual contexto faz mais sentido?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>No dashboard Gerencial (pós-atendimento)</h3>
+      <p>Botão "Corrigir flags" na linha do <code>pipeline_item</code>, ao lado dos controles já existentes (Corrigir status, Reabrir, Auditoria). O pipeline_item já está em foco ali.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>No card expandido do atendimento (recepção)</h3>
+      <p>Botão "Corrigir marcações" no <code>attendance-row-expanded</code>, visível para Gerência/Admin. O atendimento está em foco, não o pipeline_item individual.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Nos dois lugares</h3>
+      <p>No gerencial (por pipeline_item) e no card do atendimento (por attendance). Cobre mais contextos de uso.</p>
+    </div>
+  </div>
+</div>

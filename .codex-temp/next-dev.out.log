@@ -1,0 +1,16 @@
+
+> clinic-fila-digital@0.1.0 dev
+> next dev --hostname 127.0.0.1
+
+▲ Next.js 16.2.1 (Turbopack)
+- Local:         http://127.0.0.1:3000
+- Network:       http://127.0.0.1:3000
+- Environments: .env.local
+✓ Ready in 968ms
+Creating turbopack project { dir: 'C:\\Users\\User\\3D Objects\\Clinic', testMode: true }
+
+ GET /manifest.webmanifest 200 in 119ms (next.js: 84ms, proxy.ts: 11ms, application-code: 24ms)
+ GET /recepcao?date=2026-04-21 200 in 4.0s (next.js: 574ms, proxy.ts: 1386ms, application-code: 2.0s)
+ GET /icon?size=192 200 in 418ms (next.js: 49ms, proxy.ts: 94ms, application-code: 275ms)
+ GET / 200 in 225ms (next.js: 84ms, proxy.ts: 11ms, application-code: 130ms)
+ GET / 200 in 165ms (next.js: 15ms, proxy.ts: 16ms, application-code: 134ms)
