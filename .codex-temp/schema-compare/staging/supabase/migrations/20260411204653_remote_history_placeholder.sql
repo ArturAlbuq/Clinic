@@ -1,3 +1,0 @@
--- Placeholder migration to preserve remote history already applied in staging.
--- The original 20260411204653 version exists only in the linked Supabase project.
--- Keeping this no-op file locally allows subsequent migrations to be pushed safely.

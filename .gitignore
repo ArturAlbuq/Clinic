@@ -40,6 +40,11 @@ yarn-error.log*
 .vercel
 supabase/.temp/
 
+# local agent/tool caches (not for repo)
+/.claude/
+/.codex-temp/
+/.superpowers/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
