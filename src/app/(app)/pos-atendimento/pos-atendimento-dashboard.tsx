@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { PipelineExamBadges } from "@/components/pipeline-exam-badges";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { formatDateTime } from "@/lib/date";
@@ -34,6 +35,9 @@ type PipelineEvent = {
 type Props = {
   initialItems: PipelineItemRow[];
   currentProfile: ProfileRecord;
+  selectedDate: string;
+  selectedFrom: string;
+  selectedTo: string;
 };
 
 type FilterType = PipelineType | "todos";
@@ -48,61 +52,30 @@ type HistoryTarget = {
   events: PipelineEvent[];
 };
 
-function parseLocalDateInput(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-
-  if (!year || !month || !day) {
-    return null;
-  }
-
-  const date = new Date(year, month - 1, day);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function getLocalDayBounds(value: string) {
-  const start = parseLocalDateInput(value);
-
-  if (!start) {
-    return null;
-  }
-
-  const end = new Date(start);
-  end.setHours(23, 59, 59, 999);
-
-  return {
-    startMs: start.getTime(),
-    endMs: end.getTime(),
-  };
-}
-
 export function PosAtendimentoDashboard({
   initialItems,
+  selectedDate,
+  selectedFrom,
+  selectedTo,
 }: Props) {
+  const router = useRouter();
   const [items, setItems] = useState<PipelineItemRow[]>(initialItems);
   const [filterType, setFilterType] = useState<FilterType>("todos");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("todos");
   const [filterOverdue, setFilterOverdue] = useState(false);
   const [filterSearch, setFilterSearch] = useState("");
-  const [filterOpenedDay, setFilterOpenedDay] = useState("");
-  const [filterOpenedFrom, setFilterOpenedFrom] = useState("");
-  const [filterOpenedTo, setFilterOpenedTo] = useState("");
   const [advanceTarget, setAdvanceTarget] = useState<AdvanceTarget | null>(null);
   const [historyTarget, setHistoryTarget] = useState<HistoryTarget | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const dayBounds = useMemo(
-    () => getLocalDayBounds(filterOpenedDay),
-    [filterOpenedDay],
-  );
-  const fromBounds = useMemo(
-    () => getLocalDayBounds(filterOpenedFrom),
-    [filterOpenedFrom],
-  );
-  const toBounds = useMemo(
-    () => getLocalDayBounds(filterOpenedTo),
-    [filterOpenedTo],
-  );
-  const isDayFilterActive = Boolean(dayBounds);
+  const isDayFilterActive = Boolean(selectedDate);
+
+  function navigateDate(params: { date?: string; from?: string; to?: string }) {
+    const search = new URLSearchParams();
+    if (params.date) search.set("date", params.date);
+    if (params.from) search.set("from", params.from);
+    if (params.to) search.set("to", params.to);
+    router.push(`/pos-atendimento?${search.toString()}`);
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -204,8 +177,6 @@ export function PosAtendimentoDashboard({
   const filtered = useMemo(
     () =>
       sorted.filter((item) => {
-        const openedAtMs = new Date(item.opened_at).getTime();
-
         if (filterType !== "todos" && item.pipeline_type !== filterType) {
           return false;
         }
@@ -233,36 +204,9 @@ export function PosAtendimentoDashboard({
           }
         }
 
-        if (dayBounds) {
-          if (
-            openedAtMs < dayBounds.startMs ||
-            openedAtMs > dayBounds.endMs
-          ) {
-            return false;
-          }
-        } else {
-          if (fromBounds && openedAtMs < fromBounds.startMs) {
-            return false;
-          }
-
-          if (toBounds && openedAtMs > toBounds.endMs) {
-            return false;
-          }
-        }
-
         return true;
       }),
-    [
-      sorted,
-      filterType,
-      filterStatus,
-      filterOverdue,
-      filterSearch,
-      nowMs,
-      dayBounds,
-      fromBounds,
-      toBounds,
-    ],
+    [sorted, filterType, filterStatus, filterOverdue, filterSearch, nowMs],
   );
 
   const handleAdvanceConfirm = useCallback(
@@ -415,8 +359,15 @@ export function PosAtendimentoDashboard({
           </span>
           <input
             type="date"
-            value={filterOpenedDay}
-            onChange={(event) => setFilterOpenedDay(event.target.value)}
+            value={selectedDate}
+            onChange={(event) => {
+              const val = event.target.value;
+              if (val) {
+                navigateDate({ date: val });
+              } else {
+                navigateDate({ from: selectedFrom, to: selectedTo });
+              }
+            }}
             className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:outline-none"
             title="Filtrar pela data de abertura da esteira"
             aria-label="Filtrar pela data de abertura da esteira"
@@ -429,8 +380,10 @@ export function PosAtendimentoDashboard({
           </span>
           <input
             type="date"
-            value={filterOpenedFrom}
-            onChange={(event) => setFilterOpenedFrom(event.target.value)}
+            value={selectedFrom}
+            onChange={(event) =>
+              navigateDate({ from: event.target.value, to: selectedTo })
+            }
             disabled={isDayFilterActive}
             className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none"
             title="Filtrar a partir da abertura da esteira"
@@ -444,8 +397,10 @@ export function PosAtendimentoDashboard({
           </span>
           <input
             type="date"
-            value={filterOpenedTo}
-            onChange={(event) => setFilterOpenedTo(event.target.value)}
+            value={selectedTo}
+            onChange={(event) =>
+              navigateDate({ from: selectedFrom, to: event.target.value })
+            }
             disabled={isDayFilterActive}
             className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 disabled:cursor-not-allowed disabled:border-dashed disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none"
             title="Filtrar ate a abertura da esteira"
