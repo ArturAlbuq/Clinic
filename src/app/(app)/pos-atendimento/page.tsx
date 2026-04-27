@@ -15,27 +15,17 @@ export default async function PosAtendimentoPage() {
     "gerencia",
   ]);
 
-  const { data: pipelineItems, error: pipelineItemsError } = await supabase
+  const { data: pipelineItems } = await supabase
     .from("pipeline_items")
     .select(PIPELINE_ITEM_BASE_SELECT)
     .is("attendances.deleted_at", null)
     .neq("status", "publicado_finalizado")
-    .order("opened_at", { ascending: true });
-
-  console.log("[pos-atendimento] query", {
-    err: pipelineItemsError?.message ?? null,
-    code: pipelineItemsError?.code ?? null,
-    details: pipelineItemsError?.details ?? null,
-    hint: pipelineItemsError?.hint ?? null,
-    count: pipelineItems?.length ?? 0,
-  });
+    .order("opened_at", { ascending: false });
 
   const hydratedPipelineItems = await enrichPipelineItemsWithExams(
     supabase,
     (pipelineItems ?? []) as PipelineItemBaseRow[],
   );
-
-  console.log("[pos-atendimento] hydrated count", hydratedPipelineItems.length);
 
   const { PosAtendimentoDashboard } = await import(
     "./pos-atendimento-dashboard"
